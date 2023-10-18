@@ -76,17 +76,17 @@ func (r *Trie[T]) PrefixSearch(key string, matchType int) (T, bool) {
 	}
 	node := r.root
 	list := make([]TrieNode[T], 0, 8)
+	var ok bool
 	for _, k := range key {
+		node, ok = node.children[k]
+		if !ok {
+			break
+		}
 		if node.has {
 			if matchType == ShortestMatchType {
 				return node.data, true
 			}
 			list = append(list, *node)
-		}
-		var ok bool
-		node, ok = node.children[k]
-		if !ok {
-			break
 		}
 	}
 	if len(list) == 0 {
