@@ -39,23 +39,34 @@ type futureResult struct {
 // Callable 带返回值的任务
 type Callable func() (any, error)
 
-// FutureTask 与java类似
-type FutureTask struct {
+// Future 与java类似
+type Future struct {
 	result   atomic.Value
 	callable Callable
 	done     chan struct{}
 	doneOnce sync.Once
 }
 
-func NewFutureTask(callable Callable) *FutureTask {
-	return &FutureTask{
+func NewFuture(callable Callable) *Future {
+	return &Future{
 		result:   atomic.Value{},
 		callable: callable,
 		done:     make(chan struct{}),
 	}
 }
 
-func (t *FutureTask) Run() {
+func NewFutureWithResult(result any, err error) *Future {
+	val := atomic.Value{}
+	val.Store(futureResult{
+		Result: result,
+		Err:    err,
+	})
+	return &Future{
+		result: val,
+	}
+}
+
+func (t *Future) Run() {
 	res, err := t.callable()
 	t.setObj(futureResult{
 		Result: res,
@@ -65,19 +76,19 @@ func (t *FutureTask) Run() {
 }
 
 // completed 通知完成
-func (t *FutureTask) completed() {
+func (t *Future) completed() {
 	t.doneOnce.Do(func() {
 		close(t.done)
 	})
 }
 
 // setObj cas结果
-func (t *FutureTask) setObj(result futureResult) bool {
+func (t *Future) setObj(result futureResult) bool {
 	return t.result.CompareAndSwap(nil, result)
 }
 
 // SetResult 执行中可随意控制返回callable返回结果
-func (t *FutureTask) SetResult(result any) bool {
+func (t *Future) SetResult(result any) bool {
 	if t.setObj(futureResult{
 		Result: result,
 	}) {
@@ -88,7 +99,7 @@ func (t *FutureTask) SetResult(result any) bool {
 }
 
 // SetError 执行中可随意控制返回callable返回异常
-func (t *FutureTask) SetError(err error) bool {
+func (t *Future) SetError(err error) bool {
 	if t.setObj(futureResult{
 		Err: err,
 	}) {
@@ -99,12 +110,12 @@ func (t *FutureTask) SetError(err error) bool {
 }
 
 // Get 阻塞获取结果 无限期等待
-func (t *FutureTask) Get() (any, error) {
+func (t *Future) Get() (any, error) {
 	return t.GetWithTimeout(0)
 }
 
 // GetWithTimeout 带超时返回结果 超时返回timeoutErr
-func (t *FutureTask) GetWithTimeout(timeout time.Duration) (any, error) {
+func (t *Future) GetWithTimeout(timeout time.Duration) (any, error) {
 	val := t.result.Load()
 	if val == nil {
 		if timeout > 0 {

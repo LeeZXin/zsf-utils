@@ -99,12 +99,12 @@ func (e *Executor) Execute(fn func()) error {
 
 // Submit 异步可返回函数执行结果
 // 结合promise，可控制返回结果或异常 而非函数本身结果
-// 详细看 FutureTask
-func (e *Executor) Submit(callable Callable) (*FutureTask, error) {
+// 详细看 Future
+func (e *Executor) Submit(callable Callable) (*Future, error) {
 	if callable == nil {
 		return nil, errors.New("nil callable")
 	}
-	task := NewFutureTask(callable)
+	task := NewFuture(callable)
 	if err := e.ExecuteRunnable(task); err != nil {
 		return nil, err
 	}
