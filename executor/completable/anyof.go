@@ -125,6 +125,7 @@ func (f *anyOfFuture) isDone() bool {
 func (f *anyOfFuture) postComplete() {
 	f.doneOnce.Do(func() {
 		close(f.doneChan)
+		close(f.baseChan)
 		f.Lock()
 		stack := f.stack[:]
 		f.Unlock()
