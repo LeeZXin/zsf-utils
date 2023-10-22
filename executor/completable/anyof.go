@@ -22,7 +22,7 @@ func newAnyOfFuture(bases ...iBase) *anyOfFuture {
 	return &anyOfFuture{
 		Mutex:    sync.Mutex{},
 		doneChan: make(chan struct{}),
-		baseChan: make(chan iBase),
+		baseChan: make(chan iBase, len(bases)),
 		doneOnce: sync.Once{},
 		stack:    make([]iBase, 0),
 		waits:    bases,
@@ -152,12 +152,7 @@ func thenAnyOf(isAsync bool, bases ...iBase) IFuture[any] {
 			f:      f,
 			parent: i,
 		}) {
-			result, err := i.getResult()
-			if err != nil {
-				return newKnownResultFutureWithErr[any](err)
-			} else {
-				return newKnownResultFuture[any](result)
-			}
+			f.notify(i)
 		}
 	}
 	if isAsync {

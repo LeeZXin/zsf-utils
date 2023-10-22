@@ -76,10 +76,7 @@ func thenAllOf(isAsync bool, bases ...iBase) IFuture[any] {
 			f:      f,
 			parent: i,
 		}) {
-			_, err := i.getResult()
-			if err != nil {
-				return newKnownResultFutureWithErr[any](err)
-			}
+			f.notify(i)
 		}
 	}
 	if isAsync {
