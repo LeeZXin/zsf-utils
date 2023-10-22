@@ -127,6 +127,7 @@ func (f *anyOfFuture) postComplete() {
 		close(f.doneChan)
 		close(f.baseChan)
 		f.Lock()
+		f.done = true
 		stack := f.stack[:]
 		f.Unlock()
 		for _, i := range stack {
