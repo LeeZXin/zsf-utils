@@ -26,7 +26,6 @@ func thenApply[T, K any](f IFuture[T], fn ApplyFunc[T, K], isAsync bool) IFuture
 		return fn(fret)
 	}, isAsync)
 	if f.checkCompletedAndAppendToStack(cf) {
-		cf.fire()
 		return cf
 	}
 	fret, err := f.Get()
