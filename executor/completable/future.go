@@ -36,7 +36,6 @@ type callFuture[T any] struct {
 	sync.Mutex
 	result   *futureResult[T]
 	done     chan struct{}
-	doneOnce sync.Once
 	callable Callable[T]
 
 	isAsync bool
@@ -47,7 +46,6 @@ func newCallFuture[T any](callable Callable[T], isAsync bool) *callFuture[T] {
 	return &callFuture[T]{
 		Mutex:    sync.Mutex{},
 		done:     make(chan struct{}),
-		doneOnce: sync.Once{},
 		callable: callable,
 		isAsync:  isAsync,
 		stack:    make([]iBase, 0),
@@ -102,10 +100,8 @@ func (b *callFuture[T]) setResult(result *futureResult[T]) bool {
 }
 
 func (b *callFuture[T]) completed() {
-	b.doneOnce.Do(func() {
-		close(b.done)
-		b.postComplete()
-	})
+	close(b.done)
+	b.postComplete()
 }
 
 func (b *callFuture[T]) getFutureResult() *futureResult[T] {
