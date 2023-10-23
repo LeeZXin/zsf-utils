@@ -2,19 +2,19 @@ package completable
 
 import "errors"
 
-func Call[T any](callable Callable[T]) IFuture[T] {
-	return call(callable, false)
+func Call[T any](c CallFunc[T]) Future[T] {
+	return call(c, false)
 }
 
-func CallAsync[T any](callable Callable[T]) IFuture[T] {
-	return call(callable, true)
+func CallAsync[T any](c CallFunc[T]) Future[T] {
+	return call(c, true)
 }
 
-func call[T any](callable Callable[T], isAsync bool) IFuture[T] {
-	if callable == nil {
-		return newKnownResultFutureWithErr[T](errors.New("nil futures"))
+func call[T any](c CallFunc[T], isAsync bool) Future[T] {
+	if c == nil {
+		return newKnownErrorFuture[T](errors.New("nil futures"))
 	}
-	f := newCallFuture[T](callable, isAsync)
+	f := newCallFuture[T](c, isAsync)
 	f.fire()
 	return f
 }

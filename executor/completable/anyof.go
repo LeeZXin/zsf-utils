@@ -2,34 +2,33 @@ package completable
 
 import (
 	"errors"
+	"sort"
 	"sync"
 	"time"
 )
 
 type anyOfFuture struct {
 	sync.Mutex
-	result   any
-	err      error
-	done     bool
-	doneChan chan struct{}
-	baseChan chan iBase
-	doneOnce sync.Once
-	stack    []iBase
-	waits    []iBase
+	result     any
+	err        error
+	done       bool
+	doneChan   chan struct{}
+	notifyChan chan iBase
+	arr        []iBase
+	bases      []iBase
 }
 
 func newAnyOfFuture(bases ...iBase) *anyOfFuture {
 	return &anyOfFuture{
-		Mutex:    sync.Mutex{},
-		doneChan: make(chan struct{}),
-		baseChan: make(chan iBase, len(bases)),
-		doneOnce: sync.Once{},
-		stack:    make([]iBase, 0),
-		waits:    bases,
+		Mutex:      sync.Mutex{},
+		doneChan:   make(chan struct{}, 1),
+		notifyChan: make(chan iBase, len(bases)),
+		arr:        make([]iBase, 0),
+		bases:      bases,
 	}
 }
 
-func (f *anyOfFuture) checkCompletedAndAppendToStack(i iBase) bool {
+func (f *anyOfFuture) checkAndAppend(i iBase) bool {
 	if i == nil {
 		return false
 	}
@@ -38,18 +37,22 @@ func (f *anyOfFuture) checkCompletedAndAppendToStack(i iBase) bool {
 	if f.done {
 		return false
 	}
-	f.stack = append(f.stack, i)
+	f.arr = append(f.arr, i)
+	// 异步任务优先执行
+	sort.SliceStable(f.arr, func(i, j int) bool {
+		return f.arr[i].priority() > f.arr[j].priority()
+	})
 	return true
 }
 
-func (f *anyOfFuture) notify(base iBase) {
-	if base == nil {
+func (f *anyOfFuture) notify(b iBase) {
+	if b == nil {
 		return
 	}
 	f.Lock()
 	defer f.Unlock()
 	if !f.done {
-		f.baseChan <- base
+		f.notifyChan <- b
 	}
 }
 
@@ -57,7 +60,7 @@ func (f *anyOfFuture) Get() (any, error) {
 	return f.GetWithTimeout(0)
 }
 
-func (f *anyOfFuture) getResult() (any, error) {
+func (f *anyOfFuture) joinAndGet() (any, error) {
 	return f.Get()
 }
 
@@ -98,22 +101,26 @@ func (f *anyOfFuture) GetWithTimeout(timeout time.Duration) (any, error) {
 
 func (f *anyOfFuture) fire() {
 	defer f.postComplete()
-	if len(f.waits) == 0 {
+	if len(f.bases) == 0 {
 		return
 	}
 	for {
 		select {
-		case b, ok := <-f.baseChan:
+		case b, ok := <-f.notifyChan:
 			if !ok {
 				return
 			}
-			result, err := b.getResult()
+			result, err := b.joinAndGet()
 			f.setResultAndErr(result, err)
 			return
 		case <-f.doneChan:
 			return
 		}
 	}
+}
+
+func (f *anyOfFuture) priority() int {
+	return syncPriority
 }
 
 func (f *anyOfFuture) isDone() bool {
@@ -123,36 +130,34 @@ func (f *anyOfFuture) isDone() bool {
 }
 
 func (f *anyOfFuture) postComplete() {
-	f.doneOnce.Do(func() {
-		close(f.doneChan)
-		close(f.baseChan)
-		f.Lock()
-		f.done = true
-		stack := f.stack[:]
-		f.Unlock()
-		for _, i := range stack {
-			i.fire()
-		}
-	})
+	close(f.doneChan)
+	close(f.notifyChan)
+	f.Lock()
+	f.done = true
+	arr := f.arr[:]
+	f.Unlock()
+	for _, i := range arr {
+		i.fire()
+	}
 }
 
-func ThenAnyOf(bases ...iBase) IFuture[any] {
+func ThenAnyOf(bases ...iBase) Future[any] {
 	return thenAnyOf(false, bases...)
 }
 
-func ThenAnyOfAsync(bases ...iBase) IFuture[any] {
-	return thenAnyOf(true, bases...)
+func ThenAnyOfAsync(bs ...iBase) Future[any] {
+	return thenAnyOf(true, bs...)
 }
 
-func thenAnyOf(isAsync bool, bases ...iBase) IFuture[any] {
-	if len(bases) == 0 {
-		return newKnownResultFutureWithErr[any](errors.New("nil futures"))
+func thenAnyOf(isAsync bool, bs ...iBase) Future[any] {
+	if len(bs) == 0 {
+		return newKnownErrorFuture[any](errors.New("nil futures"))
 	}
-	f := newAnyOfFuture(bases...)
-	for _, i := range bases {
-		if !i.checkCompletedAndAppendToStack(&relayBase{
-			f:      f,
-			parent: i,
+	f := newAnyOfFuture(bs...)
+	for _, i := range bs {
+		if !i.checkAndAppend(&relay{
+			f: f,
+			b: i,
 		}) {
 			f.notify(i)
 		}

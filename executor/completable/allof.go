@@ -4,24 +4,28 @@ import (
 	"errors"
 )
 
-type iNotify interface {
+type notifier interface {
 	notify(base iBase)
 }
 
-type relayBase struct {
-	f      iNotify
-	parent iBase
+type relay struct {
+	f notifier
+	b iBase
 }
 
-func (r *relayBase) fire() {
-	r.f.notify(r.parent)
+func (r *relay) fire() {
+	r.f.notify(r.b)
 }
 
-func (r *relayBase) checkCompletedAndAppendToStack(iBase) bool {
+func (r *relay) priority() int {
+	return syncPriority
+}
+
+func (r *relay) checkAndAppend(iBase) bool {
 	return false
 }
 
-func (r *relayBase) getResult() (any, error) {
+func (r *relay) joinAndGet() (any, error) {
 	return nil, nil
 }
 
@@ -31,23 +35,23 @@ type allOfFuture struct {
 
 func (f *allOfFuture) fire() {
 	defer f.postComplete()
-	if len(f.waits) == 0 {
+	if len(f.bases) == 0 {
 		return
 	}
 	count := 0
 	for {
 		select {
-		case b, ok := <-f.baseChan:
+		case b, ok := <-f.notifyChan:
 			if !ok {
 				return
 			}
-			_, err := b.getResult()
+			_, err := b.joinAndGet()
 			if err != nil {
 				f.setResultAndErr(nil, err)
 				return
 			}
 			count += 1
-			if count == len(f.waits) {
+			if count == len(f.bases) {
 				return
 			}
 		case <-f.doneChan:
@@ -56,25 +60,25 @@ func (f *allOfFuture) fire() {
 	}
 }
 
-func ThenAllOf(bases ...iBase) IFuture[any] {
+func ThenAllOf(bases ...iBase) Future[any] {
 	return thenAllOf(false, bases...)
 }
 
-func ThenAllOfAsync(bases ...iBase) IFuture[any] {
+func ThenAllOfAsync(bases ...iBase) Future[any] {
 	return thenAllOf(true, bases...)
 }
 
-func thenAllOf(isAsync bool, bases ...iBase) IFuture[any] {
+func thenAllOf(isAsync bool, bases ...iBase) Future[any] {
 	if len(bases) == 0 {
-		return newKnownResultFutureWithErr[any](errors.New("nil futures"))
+		return newKnownErrorFuture[any](errors.New("nil futures"))
 	}
 	f := &allOfFuture{
 		anyOfFuture: newAnyOfFuture(bases...),
 	}
 	for _, i := range bases {
-		if !i.checkCompletedAndAppendToStack(&relayBase{
-			f:      f,
-			parent: i,
+		if !i.checkAndAppend(&relay{
+			f: f,
+			b: i,
 		}) {
 			f.notify(i)
 		}

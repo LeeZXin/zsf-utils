@@ -2,25 +2,24 @@ package completable
 
 import "errors"
 
-func ThenCombine[T, K, L any](t IFuture[T], k IFuture[K], fn CombineFunc[T, K, L]) IFuture[L] {
-	return thenCombine(t, k, fn, false)
+func ThenCombine[T, K, L any](t Future[T], k Future[K], c CombineFunc[T, K, L]) Future[L] {
+	return thenCombine(t, k, c, false)
 }
 
-func ThenCombineAsync[T, K, L any](t IFuture[T], k IFuture[K], fn CombineFunc[T, K, L]) IFuture[L] {
-	return thenCombine(t, k, fn, true)
+func ThenCombineAsync[T, K, L any](t Future[T], k Future[K], c CombineFunc[T, K, L]) Future[L] {
+	return thenCombine(t, k, c, true)
 }
 
-func thenCombine[T, K, L any](t IFuture[T], k IFuture[K], fn CombineFunc[T, K, L], isAsync bool) IFuture[L] {
+func thenCombine[T, K, L any](t Future[T], k Future[K], c CombineFunc[T, K, L], isAsync bool) Future[L] {
 	if t == nil || k == nil {
-		return newKnownResultFutureWithErr[L](errors.New("nil futures"))
+		return newKnownErrorFuture[L](errors.New("nil futures"))
 	}
-	if fn == nil {
-		return newKnownResultFutureWithErr[L](errors.New("nil fn"))
+	if c == nil {
+		return newKnownErrorFuture[L](errors.New("nil combine func"))
 	}
-	all := ThenAllOf(t, k)
-	return thenApply(all, func(any) (L, error) {
+	return thenApply(ThenAllOf(t, k), func(any) (L, error) {
 		tret, _ := t.Get()
 		kret, _ := k.Get()
-		return fn(tret, kret)
+		return c(tret, kret)
 	}, isAsync)
 }

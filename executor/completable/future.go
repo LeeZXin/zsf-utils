@@ -2,25 +2,33 @@ package completable
 
 import (
 	"errors"
+	"sort"
 	"sync"
 	"time"
+)
+
+const (
+	syncPriority = iota
+	asyncPriority
+	errPriority
 )
 
 var (
 	timeoutError = errors.New("task timeout")
 )
 
-type Callable[T any] func() (T, error)
+type CallFunc[T any] func() (T, error)
 type ApplyFunc[T, K any] func(T) (K, error)
 type CombineFunc[T, K, L any] func(T, K) (L, error)
 
 type iBase interface {
+	priority() int
 	fire()
-	getResult() (any, error)
-	checkCompletedAndAppendToStack(i iBase) bool
+	joinAndGet() (any, error)
+	checkAndAppend(i iBase) bool
 }
 
-type IFuture[T any] interface {
+type Future[T any] interface {
 	iBase
 	Get() (T, error)
 	GetWithTimeout(timeout time.Duration) (T, error)
@@ -36,113 +44,106 @@ type callFuture[T any] struct {
 	sync.Mutex
 	result   *futureResult[T]
 	done     chan struct{}
-	callable Callable[T]
-
-	isAsync bool
-	stack   []iBase
+	callFunc CallFunc[T]
+	isAsync  bool
+	arr      []iBase
 }
 
-func newCallFuture[T any](callable Callable[T], isAsync bool) *callFuture[T] {
+func newCallFuture[T any](c CallFunc[T], isAsync bool) *callFuture[T] {
 	return &callFuture[T]{
 		Mutex:    sync.Mutex{},
-		done:     make(chan struct{}),
-		callable: callable,
+		done:     make(chan struct{}, 1),
+		callFunc: c,
 		isAsync:  isAsync,
-		stack:    make([]iBase, 0),
+		arr:      make([]iBase, 0),
 	}
 }
 
-func (b *callFuture[T]) postComplete() {
-	b.Lock()
-	result := b.result
-	stack := b.stack[:]
-	b.Unlock()
-	if result == nil {
-		return
+func (c *callFuture[T]) priority() int {
+	if c.isAsync {
+		return asyncPriority
 	}
-	for _, i := range stack {
+	return syncPriority
+}
+
+func (c *callFuture[T]) fire() {
+	if c.isAsync {
+		go c.run()
+	} else {
+		c.run()
+	}
+}
+
+func (c *callFuture[T]) run() {
+	res, err := c.callFunc()
+	c.setResult(&futureResult[T]{
+		Result: res,
+		Err:    err,
+	})
+	c.completed()
+}
+
+func (c *callFuture[T]) joinAndGet() (any, error) {
+	return c.Get()
+}
+
+func (c *callFuture[T]) setResult(result *futureResult[T]) bool {
+	c.Lock()
+	defer c.Unlock()
+	if c.result != nil {
+		return false
+	}
+	c.result = result
+	return true
+}
+
+func (c *callFuture[T]) completed() {
+	close(c.done)
+	c.Lock()
+	arr := c.arr[:]
+	c.Unlock()
+	for _, i := range arr {
 		i.fire()
 	}
 }
 
-func (b *callFuture[T]) fire() {
-	if b.isAsync {
-		go func() {
-			res, err := b.callable()
-			b.setResult(&futureResult[T]{
-				Result: res,
-				Err:    err,
-			})
-			b.completed()
-		}()
-	} else {
-		res, err := b.callable()
-		b.setResult(&futureResult[T]{
-			Result: res,
-			Err:    err,
-		})
-		b.completed()
-	}
+func (c *callFuture[T]) getFutureResult() *futureResult[T] {
+	c.Lock()
+	defer c.Unlock()
+	return c.result
 }
 
-func (b *callFuture[T]) getResult() (any, error) {
-	return b.Get()
-}
-
-func (b *callFuture[T]) setResult(result *futureResult[T]) bool {
-	b.Lock()
-	defer b.Unlock()
-	if b.result != nil {
+func (c *callFuture[T]) checkAndAppend(b iBase) bool {
+	if b == nil {
 		return false
 	}
-	b.result = result
+	c.Lock()
+	defer c.Unlock()
+	if c.result != nil {
+		return false
+	}
+	c.arr = append(c.arr, b)
+	// 异步任务优先执行
+	sort.SliceStable(c.arr, func(i, j int) bool {
+		return c.arr[i].priority() > c.arr[j].priority()
+	})
 	return true
-}
-
-func (b *callFuture[T]) completed() {
-	close(b.done)
-	b.postComplete()
-}
-
-func (b *callFuture[T]) getFutureResult() *futureResult[T] {
-	b.Lock()
-	defer b.Unlock()
-	return b.result
-}
-
-func (b *callFuture[T]) checkCompletedAndAppendToStack(i iBase) bool {
-	if i == nil {
-		return false
-	}
-	b.Lock()
-	defer b.Unlock()
-	if b.result != nil {
-		return false
-	}
-	b.stack = append(b.stack, i)
-	return true
-}
-
-func (b *callFuture[T]) IsCompleted() bool {
-	b.Lock()
-	defer b.Unlock()
-	return b.result != nil
 }
 
 // Get 阻塞获取结果 无限期等待
-func (b *callFuture[T]) Get() (T, error) {
-	return b.GetWithTimeout(0)
+func (c *callFuture[T]) Get() (T, error) {
+	return c.GetWithTimeout(0)
 }
 
 // GetWithTimeout 带超时返回结果 超时返回timeoutErr
-func (b *callFuture[T]) GetWithTimeout(timeout time.Duration) (T, error) {
-	val := b.getFutureResult()
+func (c *callFuture[T]) GetWithTimeout(timeout time.Duration) (T, error) {
+	val := c.getFutureResult()
 	if val == nil {
 		if timeout > 0 {
 			timer := time.NewTimer(timeout)
 			defer timer.Stop()
 			select {
-			case <-b.done:
+			case <-c.done:
 				break
 			case <-timer.C:
 				var t T
@@ -150,46 +151,44 @@ func (b *callFuture[T]) GetWithTimeout(timeout time.Duration) (T, error) {
 			}
 		} else {
 			select {
-			case <-b.done:
+			case <-c.done:
 				break
 			}
 		}
-		val = b.getFutureResult()
+		val = c.getFutureResult()
 	}
 	return val.Result, val.Err
 }
 
-type knownResultFuture[T any] struct {
+type knownErrorFuture[T any] struct {
 	Result T
 	Err    error
 }
 
-func newKnownResultFuture[T any](result T) IFuture[T] {
-	return &knownResultFuture[T]{
-		Result: result,
-	}
-}
-
-func newKnownResultFutureWithErr[T any](err error) IFuture[T] {
-	return &knownResultFuture[T]{
+func newKnownErrorFuture[T any](err error) Future[T] {
+	return &knownErrorFuture[T]{
 		Err: err,
 	}
 }
 
-func (f *knownResultFuture[T]) fire() {}
+func (f *knownErrorFuture[T]) priority() int {
+	return errPriority
+}
 
-func (f *knownResultFuture[T]) getResult() (any, error) {
+func (f *knownErrorFuture[T]) fire() {}
+
+func (f *knownErrorFuture[T]) joinAndGet() (any, error) {
 	return f.Result, f.Err
 }
 
-func (f *knownResultFuture[T]) Get() (T, error) {
+func (f *knownErrorFuture[T]) Get() (T, error) {
 	return f.Result, f.Err
 }
 
-func (f *knownResultFuture[T]) GetWithTimeout(time.Duration) (T, error) {
+func (f *knownErrorFuture[T]) GetWithTimeout(_ time.Duration) (T, error) {
 	return f.Result, f.Err
 }
 
-func (f *knownResultFuture[T]) checkCompletedAndAppendToStack(i iBase) bool {
+func (f *knownErrorFuture[T]) checkAndAppend(_ iBase) bool {
 	return false
 }
