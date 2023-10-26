@@ -4,13 +4,13 @@ import (
 	"errors"
 )
 
-type MasterSlaves[T any] struct {
+type MasterSlavesSelector[T any] struct {
 	master        Node[T]
 	slaves        []Node[T]
 	slaveSelector Selector[T]
 }
 
-func NewMasterSlaves[T any](lbPolicy string, nodes ...Node[T]) (*MasterSlaves[T], error) {
+func NewMasterSlavesSelector[T any](lbPolicy string, nodes ...Node[T]) (*MasterSlavesSelector[T], error) {
 	selectorFunc, b := FindNewSelectorFunc[T](lbPolicy)
 	if !b {
 		selectorFunc = NewRoundRobinSelector[T]
@@ -23,32 +23,24 @@ func NewMasterSlaves[T any](lbPolicy string, nodes ...Node[T]) (*MasterSlaves[T]
 	if len(nodes) > 1 {
 		slaves = nodes[1:]
 	}
-	var (
-		slrs Selector[T]
-		err  error
-	)
+	var ret Selector[T]
 	if len(slaves) == 0 {
-		slrs = &ErrorSelector[T]{
-			Err: EmptyNodesErr,
-		}
+		ret = newErrorSelector[T](EmptyNodesErr)
 	} else {
-		slrs, err = selectorFunc(slaves)
-		if err != nil {
-			return nil, err
-		}
+		ret = selectorFunc(slaves)
 	}
-	return &MasterSlaves[T]{
+	return &MasterSlavesSelector[T]{
 		master:        master,
 		slaves:        slaves,
-		slaveSelector: slrs,
+		slaveSelector: ret,
 	}, nil
 }
 
-func (m *MasterSlaves[T]) Master() T {
+func (m *MasterSlavesSelector[T]) Master() T {
 	return m.master.Data
 }
 
-func (m *MasterSlaves[T]) Slaves() []T {
+func (m *MasterSlavesSelector[T]) Slaves() []T {
 	ret := make([]T, 0, len(m.slaves))
 	for _, slave := range m.slaves {
 		ret = append(ret, slave.Data)
@@ -56,7 +48,7 @@ func (m *MasterSlaves[T]) Slaves() []T {
 	return ret
 }
 
-func (m *MasterSlaves[T]) SelectSlave(keys ...string) (T, error) {
+func (m *MasterSlavesSelector[T]) SelectSlave(keys ...string) (T, error) {
 	node, err := m.slaveSelector.Select(keys...)
 	if err != nil {
 		var ret T
@@ -65,7 +57,7 @@ func (m *MasterSlaves[T]) SelectSlave(keys ...string) (T, error) {
 	return node.Data, nil
 }
 
-func (m *MasterSlaves[T]) IndexSlave(index int) (T, error) {
+func (m *MasterSlavesSelector[T]) IndexSlave(index int) (T, error) {
 	if index >= len(m.slaves) {
 		var ret T
 		return ret, errors.New("index out of bound")

@@ -24,6 +24,8 @@ var (
 type Selector[T any] interface {
 	// Select 选择
 	Select(...string) (Node[T], error)
+	// GetNodes 获取nodes
+	GetNodes() []Node[T]
 }
 
 // Node 路由节点信息
@@ -33,7 +35,7 @@ type Node[T any] struct {
 	Weight int    `json:"weight"`
 }
 
-func FindNewSelectorFunc[T any](lbPolicy string) (func(nodes []Node[T]) (Selector[T], error), bool) {
+func FindNewSelectorFunc[T any](lbPolicy string) (func(nodes []Node[T]) Selector[T], bool) {
 	switch lbPolicy {
 	case RoundRobinPolicy:
 		return NewRoundRobinSelector[T], true

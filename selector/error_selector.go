@@ -1,11 +1,21 @@
 package selector
 
-// ErrorSelector 配置错误选择器
-type ErrorSelector[T any] struct {
+// errorSelector 配置错误选择器
+type errorSelector[T any] struct {
 	Err error
 }
 
-func (e *ErrorSelector[T]) Select(...string) (node Node[T], err error) {
+func newErrorSelector[T any](err error) Selector[T] {
+	return &errorSelector[T]{
+		Err: err,
+	}
+}
+
+func (e *errorSelector[T]) Select(...string) (node Node[T], err error) {
 	err = e.Err
 	return
+}
+
+func (e *errorSelector[T]) GetNodes() []Node[T] {
+	return nil
 }

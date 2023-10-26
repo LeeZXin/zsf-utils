@@ -1,13 +1,12 @@
 package selector
 
 import (
-	"errors"
 	"sync"
 )
 
 // WeightedRoundRobinSelector 加权平滑路由选择器
 type WeightedRoundRobinSelector[T any] struct {
-	Nodes       []Node[T]
+	nodes       []Node[T]
 	selectMutex sync.Mutex
 	current     int
 	gcd         int
@@ -18,22 +17,22 @@ func (s *WeightedRoundRobinSelector[T]) Select(...string) (Node[T], error) {
 	s.selectMutex.Lock()
 	defer s.selectMutex.Unlock()
 	for {
-		s.current = (s.current + 1) % len(s.Nodes)
+		s.current = (s.current + 1) % len(s.nodes)
 		if s.current == 0 {
 			s.max -= s.gcd
 			if s.max <= 0 {
 				s.max = s.maxWeight()
 			}
 		}
-		if s.Nodes[s.current].Weight >= s.max {
-			return s.Nodes[s.current], nil
+		if s.nodes[s.current].Weight >= s.max {
+			return s.nodes[s.current], nil
 		}
 	}
 }
 
 func (s *WeightedRoundRobinSelector[T]) maxWeight() int {
 	m := 0
-	for _, server := range s.Nodes {
+	for _, server := range s.nodes {
 		if server.Weight > m {
 			m = server.Weight
 		}
@@ -41,32 +40,36 @@ func (s *WeightedRoundRobinSelector[T]) maxWeight() int {
 	return m
 }
 
-func (s *WeightedRoundRobinSelector[T]) init() error {
-	nodes := s.Nodes
+func (s *WeightedRoundRobinSelector[T]) init() {
+	nodes := s.nodes
 	weights := make([]int, len(nodes))
 	for i, node := range nodes {
 		if node.Weight <= 0 {
-			return errors.New("wrong weight")
+			weights[i] = 1
+		} else {
+			weights[i] = node.Weight
 		}
-		weights[i] = node.Weight
 	}
 	s.gcd = gcd(weights)
 	s.max = max(weights)
-	return nil
 }
 
-func NewWeightedRoundRobinSelector[T any](nodes []Node[T]) (Selector[T], error) {
+func (s *WeightedRoundRobinSelector[T]) GetNodes() []Node[T] {
+	return s.nodes
+}
+
+func NewWeightedRoundRobinSelector[T any](nodes []Node[T]) Selector[T] {
 	if nodes == nil || len(nodes) == 0 {
-		return nil, EmptyNodesErr
-	} else if len(nodes) == 1 {
-		return &SingleNodeSelector[T]{Node: nodes[0]}, nil
+		return &errorSelector[T]{
+			Err: EmptyNodesErr,
+		}
 	}
-	w := &WeightedRoundRobinSelector[T]{Nodes: nodes}
-	err := w.init()
-	if err != nil {
-		return nil, err
+	if len(nodes) == 1 {
+		return newSingleNodeSelector(nodes[0])
 	}
-	return w, nil
+	w := &WeightedRoundRobinSelector[T]{nodes: nodes}
+	w.init()
+	return w
 }
 
 func gcd(numbers []int) int {

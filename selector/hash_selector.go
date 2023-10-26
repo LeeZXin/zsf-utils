@@ -13,24 +13,31 @@ type HashSelector[T any] struct {
 	HashFunc HashFunc
 }
 
-func (s *HashSelector[T]) Select(key ...string) (Node[T], error) {
-	sk := ""
-	if len(key) > 0 {
-		sk = key[0]
+func (s *HashSelector[T]) Select(keys ...string) (Node[T], error) {
+	key := ""
+	if len(keys) > 0 {
+		key = keys[0]
 	}
-	h := s.HashFunc([]byte(sk))
+	h := s.HashFunc([]byte(key))
 	return s.Nodes[h%uint32(len(s.Nodes))], nil
 }
 
-func NewHashSelector[T any](nodes []Node[T]) (Selector[T], error) {
-	if nodes == nil || len(nodes) == 0 {
-		return nil, EmptyNodesErr
+func (s *HashSelector[T]) GetNodes() []Node[T] {
+	return s.Nodes
+}
+
+func NewHashSelector[T any](nodes []Node[T]) Selector[T] {
+	if len(nodes) == 0 {
+		return newErrorSelector[T](EmptyNodesErr)
 	}
-	h := &HashSelector[T]{Nodes: nodes}
-	if h.HashFunc == nil {
-		h.HashFunc = crc32.ChecksumIEEE
+	if len(nodes) == 1 {
+		return newSingleNodeSelector(nodes[0])
 	}
-	return h, nil
+	h := &HashSelector[T]{
+		Nodes:    nodes,
+		HashFunc: crc32.ChecksumIEEE,
+	}
+	return h
 }
 
 func Murmur3(key []byte) uint32 {
