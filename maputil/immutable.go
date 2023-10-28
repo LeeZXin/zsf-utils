@@ -51,3 +51,11 @@ func (i *ImmutableMap[K, V]) Range(fn func(K, V) bool) {
 func (i *ImmutableMap[K, V]) Size() int {
 	return len(i.m)
 }
+
+func (i *ImmutableMap[K, V]) GetOrDefault(k K, v V) V {
+	ret, b := i.Get(k)
+	if b {
+		return ret
+	}
+	return v
+}

@@ -104,3 +104,11 @@ func (m *ConcurrentMap[K, V]) Size() int {
 	defer m.mu.RUnlock()
 	return len(m.m)
 }
+
+func (m *ConcurrentMap[K, V]) GetOrDefault(k K, v V) V {
+	ret, b := m.Load(k)
+	if b {
+		return ret
+	}
+	return v
+}
