@@ -98,3 +98,9 @@ func (m *ConcurrentMap[K, V]) Range(fn func(K, V) bool) {
 		}
 	}
 }
+
+func (m *ConcurrentMap[K, V]) Size() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.m)
+}

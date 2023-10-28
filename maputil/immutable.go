@@ -47,3 +47,7 @@ func (i *ImmutableMap[K, V]) Range(fn func(K, V) bool) {
 		}
 	}
 }
+
+func (i *ImmutableMap[K, V]) Size() int {
+	return len(i.m)
+}

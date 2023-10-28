@@ -1,6 +1,7 @@
 package maputil
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 )
@@ -14,7 +15,7 @@ func TestNewConcurrentMap(t *testing.T) {
 	}))
 	fmt.Println(m.Load("k"))
 	fmt.Println(m.LoadOrStoreWithLoader("k2", func() (string, error) {
-		return "v2", nil
+		return "v2", errors.New("fff")
 	}))
 	fmt.Println(m.Load("k2"))
 	fmt.Println(m.AllKeys())
