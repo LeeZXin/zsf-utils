@@ -7,14 +7,14 @@ type ConcurrentHashSet[T comparable] struct {
 	mu sync.RWMutex
 }
 
-func NewConcurrentHashSet[T comparable](t []T) Set[T] {
+func NewConcurrentHashSet[T comparable](t []T) *ConcurrentHashSet[T] {
 	return &ConcurrentHashSet[T]{
 		s:  NewHashSet(t),
 		mu: sync.RWMutex{},
 	}
 }
 
-func NewConcurrentHashSetWithSet[T comparable](s Set[T]) Set[T] {
+func NewConcurrentHashSetWithSet[T comparable](s Set[T]) *ConcurrentHashSet[T] {
 	if s == nil {
 		s = NewHashSet[T](nil)
 	}
