@@ -2,30 +2,22 @@ package manage
 
 import (
 	"github.com/LeeZXin/zsf-utils/luautil"
-	"sync/atomic"
+	"github.com/LeeZXin/zsf-utils/maputil"
 )
 
 var (
-	scriptFeatureConfigMap = atomic.Value{}
+	scriptFeatureConfigMap = maputil.NewConcurrentMap[string, *luautil.CachedScript](nil)
 )
 
-func init() {
-	scriptFeatureConfigMap.Store(map[string]*luautil.CachedScript{})
-}
-
 func RefreshScriptFeatureConfigMap(configMap map[string]*luautil.CachedScript) {
-	if configMap == nil {
-		return
+	scriptFeatureConfigMap.Clear()
+	for k, v := range configMap {
+		if v != nil {
+			scriptFeatureConfigMap.Store(k, v)
+		}
 	}
-	scriptFeatureConfigMap.Store(configMap)
-}
-
-func GetScriptFeatureConfigMap() map[string]*luautil.CachedScript {
-	return scriptFeatureConfigMap.Load().(map[string]*luautil.CachedScript)
 }
 
 func LoadScriptFeatureConfig(featureKey string) (*luautil.CachedScript, bool) {
-	m := GetScriptFeatureConfigMap()
-	val, ok := m[featureKey]
-	return val, ok
+	return scriptFeatureConfigMap.Load(featureKey)
 }

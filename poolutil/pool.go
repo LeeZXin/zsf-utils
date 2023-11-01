@@ -2,27 +2,30 @@ package poolutil
 
 import (
 	"errors"
+	"github.com/LeeZXin/zsf-utils/taskutil"
 	"sync"
 	"time"
 )
 
 var (
 	CancelErr        = errors.New("wait for object canceled")
-	TimeoutErr       = errors.New("wait timeout")
 	PoolExhaustedErr = errors.New("pool exhausted")
 	PoolClosedErr    = errors.New("pool closed")
 )
 
 type PoolConfig[T any] struct {
-	MinIdle   int
-	MaxIdle   int
-	MaxActive int
-	Factory   ObjectFactory[T]
+	MinIdle            int
+	MaxIdle            int
+	MaxActive          int
+	MaxWait            int
+	IdleDuration       time.Duration
+	CleanupDuration    time.Duration
+	Factory            ObjectFactory[T]
+	BlockWhenExhausted bool
 }
 
 type Pool[T any] interface {
 	BorrowObject() (Object[T], error)
-	BorrowObjectUntil(time.Duration) (Object[T], error)
 	ReturnObject(Object[T])
 	Close()
 	IsClosed() bool
@@ -32,9 +35,28 @@ type Pool[T any] interface {
 }
 
 type Object[T any] interface {
-	IsActive() bool
+	IsClosed() bool
 	GetObject() T
 	Close()
+}
+
+type objectWrapper[T any] struct {
+	Object[T]
+	t time.Time
+}
+
+func newObjectWrapper[T any](object Object[T]) *objectWrapper[T] {
+	return &objectWrapper[T]{
+		Object: object,
+		t:      time.Now(),
+	}
+}
+
+func (w *objectWrapper[T]) IsNotExpired(idleDuration time.Duration) bool {
+	if idleDuration <= 0 {
+		return true
+	}
+	return w.t.Add(idleDuration).After(time.Now())
 }
 
 type ObjectFactory[T any] interface {
@@ -42,16 +64,14 @@ type ObjectFactory[T any] interface {
 }
 
 type GenericPool[T any] struct {
-	minIdle   int
-	maxIdle   int
-	maxActive int
-	activeNum int
-	factory   ObjectFactory[T]
-	pool      []Object[T]
-	waitList  []*waitFuture[T]
-	objectMu  sync.Mutex
-	closed    bool
-	closeOnce sync.Once
+	config      PoolConfig[T]
+	activeNum   int
+	pool        []*objectWrapper[T]
+	waitList    []*waitFuture[T]
+	objectMu    sync.Mutex
+	closed      bool
+	closeOnce   sync.Once
+	cleanupTask *taskutil.PeriodicalTask
 }
 
 func NewGenericPool[T any](config PoolConfig[T]) (*GenericPool[T], error) {
@@ -73,63 +93,88 @@ func NewGenericPool[T any](config PoolConfig[T]) (*GenericPool[T], error) {
 	if config.Factory == nil {
 		return nil, errors.New("nil object factory")
 	}
-	pool := make([]Object[T], 0, config.MaxIdle)
+	if config.CleanupDuration <= 0 {
+		config.CleanupDuration = time.Minute
+	}
+	pool := make([]*objectWrapper[T], 0, config.MaxIdle)
 	for i := 0; i < config.MinIdle; i++ {
 		object, err := config.Factory.CreateObject()
 		if err == nil {
-			pool = append(pool, object)
+			pool = append(pool, newObjectWrapper(object))
 		}
 	}
-	return &GenericPool[T]{
-		minIdle:   config.MinIdle,
-		maxIdle:   config.MaxIdle,
-		maxActive: config.MaxActive,
-		factory:   config.Factory,
-		pool:      pool,
-	}, nil
+	p := &GenericPool[T]{
+		config: config,
+		pool:   pool,
+	}
+	p.cleanupTask, _ = taskutil.NewPeriodicalTask(config.CleanupDuration, p.cleanup)
+	p.cleanupTask.Start()
+	return p, nil
 }
 
-func (p *GenericPool[T]) borrowObject(shouldWait bool, d time.Duration) (Object[T], error) {
+func (p *GenericPool[T]) cleanup() {
+	if p.objectMu.TryLock() {
+		shouldClose := make([]Object[T], 0)
+		newPool := make([]*objectWrapper[T], 0, p.config.MaxIdle)
+		for i := range p.pool {
+			o := p.pool[i]
+			if o.IsNotExpired(p.config.IdleDuration) && o.IsClosed() {
+				newPool = append(newPool, o)
+			} else {
+				shouldClose = append(shouldClose, o)
+			}
+		}
+		if len(newPool) != len(p.pool) {
+			p.pool = newPool
+		}
+		p.objectMu.Unlock()
+		for _, o := range shouldClose {
+			o.Close()
+		}
+	}
+}
+
+func (p *GenericPool[T]) BorrowObject() (Object[T], error) {
+	shouldClose := make([]Object[T], 0)
+	defer func() {
+		for _, o := range shouldClose {
+			o.Close()
+		}
+	}()
 	p.objectMu.Lock()
 	if p.closed {
 		p.objectMu.Unlock()
 		return nil, PoolClosedErr
 	}
 	for len(p.pool) > 0 {
-		object := p.pool[0]
+		obj := p.pool[0]
 		p.pool = p.pool[1:]
-		if object.IsActive() {
+		if obj.IsNotExpired(p.config.IdleDuration) && obj.IsClosed() {
 			p.activeNum += 1
 			p.objectMu.Unlock()
-			return object, nil
+			return obj.Object, nil
 		} else {
-			object.Close()
+			shouldClose = append(shouldClose, obj)
 		}
 	}
-	if p.maxActive <= 0 || p.maxActive > p.activeNum {
-		object, err := p.factory.CreateObject()
+	if p.config.MaxActive <= 0 || p.config.MaxActive > p.activeNum {
+		object, err := p.config.Factory.CreateObject()
 		if err == nil {
 			p.activeNum += 1
 		}
 		p.objectMu.Unlock()
 		return object, err
 	}
-	if !shouldWait {
-		p.objectMu.Unlock()
-		return nil, PoolExhaustedErr
+	if p.config.BlockWhenExhausted {
+		if p.config.MaxWait < 0 || p.config.MaxWait > len(p.waitList) {
+			future := newWaitFuture[T]()
+			p.waitList = append(p.waitList, future)
+			p.objectMu.Unlock()
+			return future.get()
+		}
 	}
-	future := newWaitFuture[T](d)
-	p.waitList = append(p.waitList, future)
 	p.objectMu.Unlock()
-	return future.get()
-}
-
-func (p *GenericPool[T]) BorrowObject() (Object[T], error) {
-	return p.borrowObject(false, 0)
-}
-
-func (p *GenericPool[T]) BorrowObjectUntil(d time.Duration) (Object[T], error) {
-	return p.borrowObject(true, d)
+	return nil, PoolExhaustedErr
 }
 
 func (p *GenericPool[T]) ReturnObject(t Object[T]) {
@@ -142,18 +187,19 @@ func (p *GenericPool[T]) ReturnObject(t Object[T]) {
 		t.Close()
 		return
 	}
-	if t.IsActive() {
-		if len(p.waitList) > 0 {
+	if t.IsClosed() {
+		for len(p.waitList) > 0 {
 			f := p.waitList[0]
 			p.waitList = p.waitList[1:]
-			f.notify(t)
-			return
+			if err := f.notify(t); err == nil {
+				return
+			}
 		}
 		if p.activeNum > 0 {
 			p.activeNum -= 1
 		}
-		if len(p.pool) < p.maxIdle {
-			p.pool = append(p.pool, t)
+		if len(p.pool) < p.config.MaxIdle {
+			p.pool = append(p.pool, newObjectWrapper(t))
 		} else {
 			t.Close()
 		}
@@ -174,6 +220,7 @@ func (p *GenericPool[T]) Close() {
 		p.pool = nil
 		p.waitList = nil
 		p.objectMu.Unlock()
+		p.cleanupTask.Stop()
 		for _, o := range pool {
 			o.Close()
 		}
@@ -190,11 +237,11 @@ func (p *GenericPool[T]) IsClosed() bool {
 }
 
 func (p *GenericPool[T]) GetMaxIdle() int {
-	return p.maxIdle
+	return p.config.MaxIdle
 }
 
 func (p *GenericPool[T]) GetMinIdle() int {
-	return p.minIdle
+	return p.config.MinIdle
 }
 
 func (p *GenericPool[T]) GetIdleNum() int {

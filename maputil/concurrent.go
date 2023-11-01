@@ -105,10 +105,18 @@ func (m *ConcurrentMap[K, V]) Size() int {
 	return len(m.m)
 }
 
-func (m *ConcurrentMap[K, V]) GetOrDefault(k K, v V) V {
+func (m *ConcurrentMap[K, V]) LoadOrDefault(k K, v V) V {
 	ret, b := m.Load(k)
 	if b {
 		return ret
 	}
 	return v
+}
+
+func (m *ConcurrentMap[K, V]) Clear() {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for k := range m.m {
+		delete(m.m, k)
+	}
 }
