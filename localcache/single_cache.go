@@ -2,7 +2,7 @@ package localcache
 
 import (
 	"context"
-	"github.com/LeeZXin/zsf-utils/atomicutil"
+	"github.com/LeeZXin/zsf-utils/concurrentutil"
 	"sync"
 	"time"
 )
@@ -12,8 +12,8 @@ import (
 
 type SingleCacheEntry[T any] struct {
 	expireDuration time.Duration
-	expireTime     *atomicutil.Value[time.Time]
-	data           *atomicutil.Value[T]
+	expireTime     *concurrentutil.Value[time.Time]
+	data           *concurrentutil.Value[T]
 	mu             sync.Mutex
 	supplier       Supplier[T]
 }
@@ -24,8 +24,8 @@ func NewSingleCacheEntry[T any](supplier Supplier[T], duration time.Duration) (*
 	}
 	return &SingleCacheEntry[T]{
 		expireDuration: duration,
-		expireTime:     atomicutil.NewValue[time.Time](),
-		data:           atomicutil.NewValue[T](),
+		expireTime:     concurrentutil.NewValue[time.Time](),
+		data:           concurrentutil.NewValue[T](),
 		mu:             sync.Mutex{},
 		supplier:       supplier,
 	}, nil
@@ -36,14 +36,13 @@ func (e *SingleCacheEntry[T]) LoadData(ctx context.Context) (T, error) {
 		result T
 		err    error
 	)
-	etime, b := e.expireTime.Load()
+	etime := e.expireTime.Load()
 	// 首次加载
-	if !b {
+	if etime.IsZero() {
 		e.mu.Lock()
 		defer e.mu.Unlock()
-		if _, b = e.expireTime.Load(); b {
-			ret, _ := e.data.Load()
-			return ret, nil
+		if etime = e.expireTime.Load(); !etime.IsZero() {
+			return e.data.Load(), nil
 		}
 		result, err = e.supplier(ctx)
 		if err != nil {
@@ -67,6 +66,5 @@ func (e *SingleCacheEntry[T]) LoadData(ctx context.Context) (T, error) {
 			}
 		}
 	}
-	ret, _ := e.data.Load()
-	return ret, nil
+	return e.data.Load(), nil
 }
