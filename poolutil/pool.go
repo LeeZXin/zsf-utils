@@ -135,12 +135,6 @@ func (p *GenericPool[T]) cleanup() {
 }
 
 func (p *GenericPool[T]) BorrowObject() (Object[T], error) {
-	shouldClose := make([]Object[T], 0)
-	defer func() {
-		for _, o := range shouldClose {
-			o.Close()
-		}
-	}()
 	p.objectMu.Lock()
 	if p.closed {
 		p.objectMu.Unlock()
@@ -154,7 +148,7 @@ func (p *GenericPool[T]) BorrowObject() (Object[T], error) {
 			p.objectMu.Unlock()
 			return obj.Object, nil
 		} else {
-			shouldClose = append(shouldClose, obj)
+			go obj.Close()
 		}
 	}
 	if p.config.MaxActive <= 0 || p.config.MaxActive > p.activeNum {
