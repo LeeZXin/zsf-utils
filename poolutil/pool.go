@@ -35,7 +35,7 @@ type Pool[T any] interface {
 }
 
 type Object[T any] interface {
-	IsClosed() bool
+	IsActive() bool
 	GetObject() T
 	Close()
 }
@@ -118,7 +118,7 @@ func (p *GenericPool[T]) cleanup() {
 		newPool := make([]*objectWrapper[T], 0, p.config.MaxIdle)
 		for i := range p.pool {
 			o := p.pool[i]
-			if o.IsNotExpired(p.config.IdleDuration) && o.IsClosed() {
+			if o.IsNotExpired(p.config.IdleDuration) && o.IsActive() {
 				newPool = append(newPool, o)
 			} else {
 				shouldClose = append(shouldClose, o)
@@ -149,7 +149,7 @@ func (p *GenericPool[T]) BorrowObject() (Object[T], error) {
 	for len(p.pool) > 0 {
 		obj := p.pool[0]
 		p.pool = p.pool[1:]
-		if obj.IsNotExpired(p.config.IdleDuration) && obj.IsClosed() {
+		if obj.IsNotExpired(p.config.IdleDuration) && obj.IsActive() {
 			p.activeNum += 1
 			p.objectMu.Unlock()
 			return obj.Object, nil
@@ -187,7 +187,7 @@ func (p *GenericPool[T]) ReturnObject(t Object[T]) {
 		t.Close()
 		return
 	}
-	if t.IsClosed() {
+	if t.IsActive() {
 		for len(p.waitList) > 0 {
 			f := p.waitList[0]
 			p.waitList = p.waitList[1:]
