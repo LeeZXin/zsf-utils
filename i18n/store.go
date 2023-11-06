@@ -2,8 +2,8 @@ package i18n
 
 import (
 	"errors"
+	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/concurrentutil"
-	"github.com/LeeZXin/zsf-utils/maputil"
 )
 
 var (
@@ -11,7 +11,7 @@ var (
 )
 
 type storeImpl struct {
-	m *maputil.ConcurrentMap[string, Locale]
+	m *hashmap.ConcurrentHashMap[string, Locale]
 	l *concurrentutil.Value[Locale]
 }
 
@@ -20,19 +20,19 @@ func NewDefaultStore() Store {
 	var d Locale = new(defaultLocale)
 	l.Store(d)
 	return &storeImpl{
-		m: maputil.NewConcurrentMap[string, Locale](nil),
+		m: hashmap.NewConcurrentHashMap[string, Locale](),
 		l: l,
 	}
 }
 
 func (s *storeImpl) AddLocale(l ...Locale) {
 	for _, i := range l {
-		s.m.Store(i.Language(), i)
+		s.m.Put(i.Language(), i)
 	}
 }
 
 func (s *storeImpl) GetLocale(k string) (Locale, bool) {
-	return s.m.Load(k)
+	return s.m.Get(k)
 }
 
 func (s *storeImpl) SetDefaultLocale(k string) error {

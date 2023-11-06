@@ -1,20 +1,21 @@
 package hashset
 
 type Set[T comparable] interface {
-	Add(T)
-	Delete(...T)
+	Add(...T)
+	Remove(...T)
 	Contains(T) bool
-	Copy() Set[T]
 	AllKeys() []T
 	Intersect(h Set[T]) Set[T]
 	Range(func(T) bool)
+	Size() int
+	Clear()
 }
 
 type HashSet[T comparable] struct {
 	m map[T]struct{}
 }
 
-func NewHashSet[T comparable](arr []T) Set[T] {
+func NewHashSet[T comparable](arr []T) *HashSet[T] {
 	ret := &HashSet[T]{
 		m: make(map[T]struct{}, len(arr)),
 	}
@@ -24,23 +25,21 @@ func NewHashSet[T comparable](arr []T) Set[T] {
 	return ret
 }
 
-func (s *HashSet[T]) Add(key T) {
-	s.m[key] = struct{}{}
+func (s *HashSet[T]) Add(ts ...T) {
+	for _, t := range ts {
+		s.m[t] = struct{}{}
+	}
 }
 
-func (s *HashSet[T]) Delete(keys ...T) {
-	for _, key := range keys {
-		delete(s.m, key)
+func (s *HashSet[T]) Remove(ts ...T) {
+	for _, t := range ts {
+		delete(s.m, t)
 	}
 }
 
 func (s *HashSet[T]) Contains(key T) bool {
 	_, ok := s.m[key]
 	return ok
-}
-
-func (s *HashSet[T]) Copy() Set[T] {
-	return NewHashSet(s.AllKeys())
 }
 
 func (s *HashSet[T]) AllKeys() []T {
@@ -71,5 +70,15 @@ func (s *HashSet[T]) Range(fn func(T) bool) {
 		if !fn(key) {
 			return
 		}
+	}
+}
+
+func (s *HashSet[T]) Size() int {
+	return len(s.m)
+}
+
+func (s *HashSet[T]) Clear() {
+	for k := range s.m {
+		delete(s.m, k)
 	}
 }

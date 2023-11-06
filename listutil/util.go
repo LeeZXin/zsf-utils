@@ -2,7 +2,7 @@ package listutil
 
 import (
 	"errors"
-	"github.com/LeeZXin/zsf-utils/hashset"
+	"github.com/LeeZXin/zsf-utils/collections/hashset"
 	"math"
 	"math/rand"
 )

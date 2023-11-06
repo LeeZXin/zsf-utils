@@ -7,45 +7,31 @@ type ConcurrentHashSet[T comparable] struct {
 	mu sync.RWMutex
 }
 
-func NewConcurrentHashSet[T comparable](t []T) *ConcurrentHashSet[T] {
+func NewConcurrentHashSet[T comparable]() *ConcurrentHashSet[T] {
 	return &ConcurrentHashSet[T]{
-		s:  NewHashSet(t),
+		s:  NewHashSet[T](nil),
 		mu: sync.RWMutex{},
 	}
 }
 
-func NewConcurrentHashSetWithSet[T comparable](s Set[T]) *ConcurrentHashSet[T] {
-	if s == nil {
-		s = NewHashSet[T](nil)
-	}
-	return &ConcurrentHashSet[T]{
-		s:  s,
-		mu: sync.RWMutex{},
+func (c *ConcurrentHashSet[T]) Add(ts ...T) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, t := range ts {
+		c.s.Add(t)
 	}
 }
 
-func (c *ConcurrentHashSet[T]) Add(t T) {
+func (c *ConcurrentHashSet[T]) Remove(t ...T) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.s.Add(t)
-}
-
-func (c *ConcurrentHashSet[T]) Delete(t ...T) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.s.Delete(t...)
+	c.s.Remove(t...)
 }
 
 func (c *ConcurrentHashSet[T]) Contains(t T) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.s.Contains(t)
-}
-
-func (c *ConcurrentHashSet[T]) Copy() Set[T] {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.s.Copy()
 }
 
 func (c *ConcurrentHashSet[T]) AllKeys() []T {
@@ -70,4 +56,16 @@ func (c *ConcurrentHashSet[T]) Range(fn func(T) bool) {
 			return
 		}
 	}
+}
+
+func (c *ConcurrentHashSet[T]) Size() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.s.Size()
+}
+
+func (c *ConcurrentHashSet[T]) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.s.Clear()
 }
