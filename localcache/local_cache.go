@@ -2,8 +2,8 @@ package localcache
 
 import (
 	"context"
+	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"hash/crc32"
-	"sync"
 	"time"
 )
 
@@ -16,76 +16,41 @@ const (
 
 type segment[T any] struct {
 	expireDuration time.Duration
-	mu             sync.Mutex
-	cache          map[string]*SingleCacheEntry[T]
+	cache          hashmap.Map[string, *SingleCacheEntry[T]]
 	supplier       SupplierWithKey[T]
 }
 
 func newSegment[T any](supplier SupplierWithKey[T], expireDuration time.Duration) *segment[T] {
 	return &segment[T]{
-		mu:             sync.Mutex{},
-		cache:          make(map[string]*SingleCacheEntry[T], 8),
+		cache:          hashmap.NewConcurrentHashMap[string, *SingleCacheEntry[T]](),
 		supplier:       supplier,
 		expireDuration: expireDuration,
 	}
 }
 
-func (e *segment[T]) getData(ctx context.Context, key string) (T, error) {
-	var ret T
-	entry, err := e.getEntry(key)
-	if err != nil {
-		return ret, err
-	}
-	return entry.LoadData(ctx)
-}
-
-func (e *segment[T]) getEntry(key string) (*SingleCacheEntry[T], error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	entry, ok := e.cache[key]
-	if ok {
-		return entry, nil
-	}
-	entry, err := NewSingleCacheEntry(func(ctx context.Context) (T, error) {
-		return e.supplier(ctx, key)
-	}, e.expireDuration)
-	if err != nil {
-		return nil, err
-	}
-	e.cache[key] = entry
-	return entry, nil
+func (e *segment[T]) getEntry(key string) *SingleCacheEntry[T] {
+	ret, _, _ := e.cache.GetOrPutWithLoader(key, func() (*SingleCacheEntry[T], error) {
+		return NewSingleCacheEntry(func(ctx context.Context) (T, error) {
+			return e.supplier(ctx, key)
+		}, e.expireDuration)
+	})
+	return ret
 }
 
 func (e *segment[T]) allKeys() []string {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	keys := make([]string, 0, len(e.cache))
-	for key := range e.cache {
-		k := key
-		keys = append(keys, k)
-	}
-	return keys
+	return e.cache.AllKeys()
 }
 
 func (e *segment[T]) clear() {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	for key := range e.cache {
-		delete(e.cache, key)
-	}
+	e.cache.Clear()
 }
 
 func (e *segment[T]) removeKey(key string) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	delete(e.cache, key)
+	e.cache.Remove(key)
 }
 
 func (e *segment[T]) containsKey(key string) bool {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	_, ok := e.cache[key]
-	return ok
+	return e.cache.Contains(key)
 }
 
 type LocalCache[T any] struct {
@@ -93,7 +58,7 @@ type LocalCache[T any] struct {
 	segments []*segment[T]
 }
 
-func NewLocalCache[T any](supplier SupplierWithKey[T], duration time.Duration) (ExpireCache[T], error) {
+func NewLocalCache[T any](supplier SupplierWithKey[T], duration time.Duration) (*LocalCache[T], error) {
 	if supplier == nil {
 		return nil, NilSupplierErr
 	}
@@ -108,7 +73,7 @@ func NewLocalCache[T any](supplier SupplierWithKey[T], duration time.Duration) (
 }
 
 func (e *LocalCache[T]) LoadData(ctx context.Context, key string) (T, error) {
-	return e.getSegment(key).getData(ctx, key)
+	return e.getSegment(key).getEntry(key).LoadData(ctx)
 }
 
 func (e *LocalCache[T]) getSegment(key string) *segment[T] {

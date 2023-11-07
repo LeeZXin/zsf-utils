@@ -62,15 +62,18 @@ func (m *ConcurrentHashMap[K, V]) Range(fn func(K, V) bool) {
 	if fn == nil {
 		return
 	}
-	keys := m.AllKeys()
-	for _, key := range keys {
-		val, b := m.Get(key)
-		if b {
-			if !fn(key, val) {
-				return
-			}
-		}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.m.Range(fn)
+}
+
+func (m *ConcurrentHashMap[K, V]) RangeWithRLock(fn func(K, V) bool) {
+	if fn == nil {
+		return
 	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	m.m.Range(fn)
 }
 
 func (m *ConcurrentHashMap[K, V]) Size() int {

@@ -8,14 +8,14 @@ import (
 
 type LinkedHashSet[T comparable] struct {
 	s *HashSet[T]
-	m hashmap.Map[T, *list.Element]
+	e hashmap.Map[T, *list.Element]
 	l *list.List
 }
 
 func NewLinkedHashSet[T comparable]() *LinkedHashSet[T] {
 	return &LinkedHashSet[T]{
 		s: NewHashSet[T](nil),
-		m: hashmap.NewHashMap[T, *list.Element](),
+		e: hashmap.NewHashMap[T, *list.Element](),
 		l: list.New(),
 	}
 }
@@ -24,7 +24,7 @@ func (s *LinkedHashSet[T]) Add(ts ...T) {
 	for _, t := range ts {
 		if !s.Contains(t) {
 			e := s.l.PushBack(t)
-			s.m.Put(t, e)
+			s.e.Put(t, e)
 			s.s.Add(t)
 		}
 	}
@@ -33,9 +33,9 @@ func (s *LinkedHashSet[T]) Add(ts ...T) {
 func (s *LinkedHashSet[T]) Remove(ts ...T) {
 	for _, t := range ts {
 		if s.Contains(t) {
-			e, _ := s.m.Get(t)
+			e, _ := s.e.Get(t)
 			s.s.Remove(t)
-			s.m.Remove(t)
+			s.e.Remove(t)
 			s.l.Remove(e)
 		}
 	}
@@ -79,12 +79,12 @@ func (s *LinkedHashSet[T]) Range(fn func(T) bool) {
 }
 
 func (s *LinkedHashSet[T]) Size() int {
-	return s.m.Size()
+	return s.s.Size()
 }
 
 func (s *LinkedHashSet[T]) Clear() {
 	s.s.Clear()
-	s.m.Clear()
+	s.e.Clear()
 	s.l.Init()
 }
 

@@ -1,6 +1,7 @@
 package zengine
 
 import (
+	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/luautil"
 	lua "github.com/yuin/gopher-lua"
 )
@@ -42,16 +43,15 @@ type DAG struct {
 	// startNode
 	startNode string
 	// nodes 节点信息列表
-	nodes map[string]Node
+	nodes hashmap.Map[string, *Node]
 }
 
 func (d *DAG) StartNode() string {
 	return d.startNode
 }
 
-func (d *DAG) GetNode(name string) (node Node, ok bool) {
-	node, ok = d.nodes[name]
-	return
+func (d *DAG) GetNode(name string) (*Node, bool) {
+	return d.nodes.Get(name)
 }
 
 // Node 节点信息

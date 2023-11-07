@@ -6,8 +6,7 @@ import (
 )
 
 var (
-	NilSupplierErr    = errors.New("nil supplier")
-	IllegalMaxSizeErr = errors.New("maxSize should greater than 0")
+	NilSupplierErr = errors.New("nil supplier")
 )
 
 type Supplier[T any] func(context.Context) (T, error)

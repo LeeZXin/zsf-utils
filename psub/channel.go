@@ -60,12 +60,12 @@ func (c *Channel[T]) Subscribe(topic string, subscriber Subscriber[T]) error {
 		return invalidArgErr
 	}
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	subs, ok := c.ch[topic]
 	if !ok {
 		subs = make([]Subscriber[T], 0)
 	}
 	c.ch[topic] = append(subs, subscriber)
-	c.mu.Unlock()
 	return nil
 }
 

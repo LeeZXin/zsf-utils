@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/luautil"
 	"strconv"
 )
@@ -54,18 +55,16 @@ func (e *ExecContext) LuaExecutor() *luautil.ScriptExecutor {
 }
 
 type DAGExecutor struct {
-	handlerMap  map[string]Handler
+	handlerMap  hashmap.Map[string, Handler]
 	luaExecutor *luautil.ScriptExecutor
 	limitTimes  int
 }
 
 func NewDAGExecutor(handlers []Handler, luaExecutor *luautil.ScriptExecutor, limitTimes int) *DAGExecutor {
-	handlerMap := make(map[string]Handler)
-	if handlers != nil {
-		for i := range handlers {
-			handler := handlers[i]
-			handlerMap[handler.GetName()] = handler
-		}
+	handlerMap := hashmap.NewHashMap[string, Handler]()
+	for i := range handlers {
+		handler := handlers[i]
+		handlerMap.Put(handler.GetName(), handler)
 	}
 	if luaExecutor == nil {
 		luaExecutor, _ = luautil.NewScriptExecutor(1000, 1, nil)
@@ -119,8 +118,8 @@ func (d *DAGExecutor) findAndExecute(dag *DAG, name string, ectx *ExecContext, t
 }
 
 // executeNode 执行节点 递归深度优先遍历
-func (d *DAGExecutor) executeNode(dag *DAG, node Node, ectx *ExecContext, times int) error {
-	handler, ok := d.handlerMap[node.Params.HandlerConfig.Name]
+func (d *DAGExecutor) executeNode(dag *DAG, node *Node, ectx *ExecContext, times int) error {
+	handler, ok := d.handlerMap.Get(node.Params.HandlerConfig.Name)
 	if !ok {
 		return errors.New("unknown handler:" + node.Params.HandlerConfig.Name)
 	}
@@ -188,29 +187,29 @@ func (d *DAGExecutor) buildNext(config []NextConfig) ([]Next, error) {
 	return ret, nil
 }
 
-func (d *DAGExecutor) buildNode(config NodeConfig) (Node, error) {
+func (d *DAGExecutor) buildNode(config NodeConfig) (*Node, error) {
 	next, err := d.buildNext(config.Next)
 	if err != nil {
-		return Node{}, err
+		return nil, err
 	}
-	return Node{
+	return &Node{
 		Name:   config.Name,
 		Params: NewInputParams(config.Handler),
 		Next:   next,
 	}, nil
 }
 
-func (d *DAGExecutor) buildNodes(config []NodeConfig) (map[string]Node, error) {
+func (d *DAGExecutor) buildNodes(config []NodeConfig) (hashmap.Map[string, *Node], error) {
 	if config == nil {
-		return make(map[string]Node), nil
+		return hashmap.NewHashMap[string, *Node](), nil
 	}
-	ret := make(map[string]Node)
+	ret := hashmap.NewHashMap[string, *Node]()
 	for _, nodeConfig := range config {
 		node, err := d.buildNode(nodeConfig)
 		if err != nil {
 			return nil, err
 		}
-		ret[node.Name] = node
+		ret.Put(node.Name, node)
 	}
 	return ret, nil
 }

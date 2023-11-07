@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"errors"
 	"sync"
+	"sync/atomic"
 )
 
 type LinkedHashMap[K comparable, V any] struct {
@@ -11,8 +12,10 @@ type LinkedHashMap[K comparable, V any] struct {
 	e Map[K, *list.Element]
 	l *list.List
 
-	removeEldestKeyFn func(map[K]V) bool
-	accessOrder       bool
+	limitSize   int
+	accessOrder bool
+
+	whenRemoveEldestKey atomic.Value
 }
 
 func NewLinkedHashMap[K comparable, V any](accessOrder bool) *LinkedHashMap[K, V] {
@@ -25,16 +28,19 @@ func NewLinkedHashMap[K comparable, V any](accessOrder bool) *LinkedHashMap[K, V
 	}
 }
 
-func NewLinkedHashMapWithRemoveEldestKeyFn[K comparable, V any](accessOrder bool, fn func(map[K]V) bool) *LinkedHashMap[K, V] {
+func NewLinkedHashMapWithLimitSize[K comparable, V any](accessOrder bool, limitSize int) *LinkedHashMap[K, V] {
 	return &LinkedHashMap[K, V]{
 		m: NewHashMap[K, V](),
 		e: NewHashMap[K, *list.Element](),
 		l: list.New(),
 
-		removeEldestKeyFn: fn,
-
+		limitSize:   limitSize,
 		accessOrder: accessOrder,
 	}
+}
+
+func (s *LinkedHashMap[K, V]) WhenRemoveEldestKey(fn func(K, V)) {
+	s.whenRemoveEldestKey.Store(fn)
 }
 
 func (s *LinkedHashMap[K, V]) Get(k K) (V, bool) {
@@ -64,12 +70,17 @@ func (s *LinkedHashMap[K, V]) Put(k K, v V) {
 		s.e.Put(k, e)
 	}
 	s.m.Put(k, v)
-	if s.removeEldestKeyFn != nil && s.removeEldestKeyFn(s.m.ToMap()) {
+	if s.limitSize > 0 && s.limitSize < s.Size() {
 		n := s.l.Front()
 		nk := n.Value.(K)
+		nv, _ := s.m.Get(nk)
 		s.l.Remove(n)
 		s.e.Remove(nk)
 		s.m.Remove(nk)
+		f := s.whenRemoveEldestKey.Load()
+		if f != nil {
+			f.(func(K, V))(nk, nv)
+		}
 	}
 }
 
@@ -149,6 +160,9 @@ func (s *LinkedHashMap[K, V]) GetOrPutWithLoader(k K, fn func() (V, error)) (V, 
 		err = errors.New("nil fn")
 	} else {
 		v, err = fn()
+		if err == nil {
+			s.Put(k, v)
+		}
 	}
 	return v, false, err
 }
@@ -173,13 +187,17 @@ func NewConcurrentLinkedHashMap[K comparable, V any](accessOrder bool) *Concurre
 	}
 }
 
-func NewConcurrentLinkedHashMapWithRemoveEldestKeyFn[K comparable, V any](accessOrder bool, fn func(map[K]V) bool) *ConcurrentLinkedHashMap[K, V] {
+func NewConcurrentLinkedHashMapWithLimitSize[K comparable, V any](accessOrder bool, limitSize int) *ConcurrentLinkedHashMap[K, V] {
 	return &ConcurrentLinkedHashMap[K, V]{
-		m:  NewLinkedHashMapWithRemoveEldestKeyFn[K, V](accessOrder, fn),
+		m:  NewLinkedHashMapWithLimitSize[K, V](accessOrder, limitSize),
 		mu: sync.RWMutex{},
 
 		accessOrder: accessOrder,
 	}
+}
+
+func (m *ConcurrentLinkedHashMap[K, V]) WhenRemoveEldestKey(fn func(K, V)) {
+	m.m.WhenRemoveEldestKey(fn)
 }
 
 func (m *ConcurrentLinkedHashMap[K, V]) Get(k K) (V, bool) {
@@ -221,15 +239,18 @@ func (m *ConcurrentLinkedHashMap[K, V]) Range(fn func(K, V) bool) {
 	if fn == nil {
 		return
 	}
-	keys := m.m.AllKeys()
-	for _, k := range keys {
-		v, b := m.Get(k)
-		if b {
-			if !fn(k, v) {
-				return
-			}
-		}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.m.Range(fn)
+}
+
+func (m *ConcurrentLinkedHashMap[K, V]) RangeWithRLock(fn func(K, V) bool) {
+	if fn == nil {
+		return
 	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	m.m.Range(fn)
 }
 
 func (m *ConcurrentLinkedHashMap[K, V]) Size() int {
@@ -260,4 +281,10 @@ func (m *ConcurrentLinkedHashMap[K, V]) GetOrPutWithLoader(k K, fn func() (V, er
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.m.GetOrPutWithLoader(k, fn)
+}
+
+func (m *ConcurrentLinkedHashMap[K, V]) ToMap() map[K]V {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.m.ToMap()
 }

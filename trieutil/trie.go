@@ -1,10 +1,12 @@
 package trieutil
 
+import "github.com/LeeZXin/zsf-utils/collections/hashmap"
+
 // TNode 前缀树
 
 type TrieNode[T any] struct {
 	label    string
-	children map[rune]*TrieNode[T]
+	children *hashmap.HashMap[rune, *TrieNode[T]]
 	data     T
 	has      bool
 }
@@ -25,7 +27,7 @@ type Trie[T any] struct {
 func (r *Trie[T]) Insert(key string, data T) {
 	if r.root == nil {
 		r.root = &TrieNode[T]{
-			children: make(map[rune]*TrieNode[T], 8),
+			children: hashmap.NewHashMap[rune, *TrieNode[T]](),
 		}
 	}
 	if key == "" {
@@ -33,14 +35,14 @@ func (r *Trie[T]) Insert(key string, data T) {
 	}
 	node := r.root
 	for i, k := range key {
-		if c, ok := node.children[k]; !ok {
-			c = &TrieNode[T]{
+		if !node.children.Contains(k) {
+			c := &TrieNode[T]{
 				label:    key[:i+1],
-				children: make(map[rune]*TrieNode[T], 8),
+				children: hashmap.NewHashMap[rune, *TrieNode[T]](),
 			}
-			node.children[k] = c
+			node.children.Put(k, c)
 		}
-		node = node.children[k]
+		node, _ = node.children.Get(k)
 	}
 	node.data = data
 	node.has = true
@@ -55,7 +57,7 @@ func (r *Trie[T]) FullSearch(key string) (T, bool) {
 	node := r.root
 	for _, k := range key {
 		var ok bool
-		node, ok = node.children[k]
+		node, ok = node.children.Get(k)
 		if !ok {
 			var t T
 			return t, false
@@ -78,7 +80,7 @@ func (r *Trie[T]) PrefixSearch(key string, matchType int) (T, bool) {
 	list := make([]TrieNode[T], 0, 8)
 	var ok bool
 	for _, k := range key {
-		node, ok = node.children[k]
+		node, ok = node.children.Get(k)
 		if !ok {
 			break
 		}

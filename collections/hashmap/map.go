@@ -17,6 +17,11 @@ type Map[K comparable, V any] interface {
 	ToMap() map[K]V
 }
 
+type ConcurrentMap[K comparable, V any] interface {
+	Map[K, V]
+	RangeWithRLock(func(K, V) bool)
+}
+
 type HashMap[K comparable, V any] struct {
 	m map[K]V
 }
@@ -25,6 +30,16 @@ func NewHashMap[K comparable, V any]() *HashMap[K, V] {
 	return &HashMap[K, V]{
 		m: make(map[K]V, 8),
 	}
+}
+
+func NewHashMapWithMap[K comparable, V any](m map[K]V) *HashMap[K, V] {
+	ret := &HashMap[K, V]{
+		m: make(map[K]V, len(m)),
+	}
+	for k, v := range m {
+		ret.Put(k, v)
+	}
+	return ret
 }
 
 func (h *HashMap[K, V]) Get(k K) (V, bool) {

@@ -1,7 +1,7 @@
 package selector
 
 import (
-	"math/rand"
+	"github.com/LeeZXin/zsf-utils/randutil"
 	"sync/atomic"
 )
 
@@ -30,6 +30,6 @@ func NewRoundRobinSelector[T any](nodes []Node[T]) Selector[T] {
 		return newSingleNodeSelector(nodes[0])
 	}
 	r := &RoundRobinSelector[T]{nodes: nodes}
-	r.index = uint64(rand.Intn(len(r.nodes)))
+	r.index = uint64(randutil.Intn(len(r.nodes)))
 	return r
 }

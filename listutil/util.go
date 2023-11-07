@@ -3,8 +3,8 @@ package listutil
 import (
 	"errors"
 	"github.com/LeeZXin/zsf-utils/collections/hashset"
+	"github.com/LeeZXin/zsf-utils/randutil"
 	"math"
-	"math/rand"
 )
 
 func Contains[T comparable](t T, arr []T) bool {
@@ -124,7 +124,7 @@ func ShuffleSelf[T any](data []T) {
 	length := len(data)
 	tail := length - 1
 	for i := 0; i < tail; i++ {
-		j := i + rand.Intn(length-i)
+		j := i + randutil.Intn(length-i)
 		data[i], data[j] = data[j], data[i]
 	}
 }

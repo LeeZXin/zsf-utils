@@ -2,7 +2,7 @@ package strutil
 
 import (
 	"fmt"
-	"math/rand"
+	"github.com/LeeZXin/zsf-utils/randutil"
 	"strings"
 )
 
@@ -31,7 +31,7 @@ func RandomStr(length int) string {
 	}
 	sb := strings.Builder{}
 	for i := 0; i < length; i++ {
-		sb.WriteString(c62[rand.Intn(62)])
+		sb.WriteString(c62[randutil.Intn(62)])
 	}
 	return sb.String()
 }

@@ -1,5 +1,7 @@
 package hashset
 
+import "github.com/LeeZXin/zsf-utils/collections/hashmap"
+
 type Set[T comparable] interface {
 	Add(...T)
 	Remove(...T)
@@ -12,42 +14,33 @@ type Set[T comparable] interface {
 }
 
 type HashSet[T comparable] struct {
-	m map[T]struct{}
+	m *hashmap.HashMap[T, struct{}]
 }
 
-func NewHashSet[T comparable](arr []T) *HashSet[T] {
+func NewHashSet[T comparable](ts []T) *HashSet[T] {
 	ret := &HashSet[T]{
-		m: make(map[T]struct{}, len(arr)),
+		m: hashmap.NewHashMap[T, struct{}](),
 	}
-	for _, t := range arr {
-		ret.Add(t)
-	}
+	ret.Add(ts...)
 	return ret
 }
 
 func (s *HashSet[T]) Add(ts ...T) {
 	for _, t := range ts {
-		s.m[t] = struct{}{}
+		s.m.Put(t, struct{}{})
 	}
 }
 
 func (s *HashSet[T]) Remove(ts ...T) {
-	for _, t := range ts {
-		delete(s.m, t)
-	}
+	s.m.Remove(ts...)
 }
 
-func (s *HashSet[T]) Contains(key T) bool {
-	_, ok := s.m[key]
-	return ok
+func (s *HashSet[T]) Contains(t T) bool {
+	return s.m.Contains(t)
 }
 
 func (s *HashSet[T]) AllKeys() []T {
-	ret := make([]T, 0, len(s.m))
-	for k := range s.m {
-		ret = append(ret, k)
-	}
-	return ret
+	return s.m.AllKeys()
 }
 
 func (s *HashSet[T]) Intersect(h Set[T]) Set[T] {
@@ -62,23 +55,15 @@ func (s *HashSet[T]) Intersect(h Set[T]) Set[T] {
 }
 
 func (s *HashSet[T]) Range(fn func(T) bool) {
-	if fn == nil {
-		return
-	}
-	keys := s.AllKeys()
-	for _, key := range keys {
-		if !fn(key) {
-			return
-		}
-	}
+	s.m.Range(func(t T, s struct{}) bool {
+		return fn(t)
+	})
 }
 
 func (s *HashSet[T]) Size() int {
-	return len(s.m)
+	return s.m.Size()
 }
 
 func (s *HashSet[T]) Clear() {
-	for k := range s.m {
-		delete(s.m, k)
-	}
+	s.m.Clear()
 }
