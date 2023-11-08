@@ -7,17 +7,27 @@ import (
 	"math"
 )
 
-func Contains[T comparable](t T, arr []T) bool {
-	for _, a := range arr {
-		if a == t {
-			return true
-		}
-	}
-	return false
+func Contains[T any](arr []T, fn func(T) (bool, error)) (bool, error) {
+	_, b, err := FindFirst(arr, fn)
+	return b, err
 }
 
-type Stream[T any] struct {
-	data []T
+func FindFirst[T any](arr []T, fn func(T) (bool, error)) (T, bool, error) {
+	if fn == nil {
+		var t T
+		return t, false, errors.New("nil fn")
+	}
+	for _, t := range arr {
+		b, err := fn(t)
+		if err != nil {
+			return t, false, err
+		}
+		if b {
+			return t, true, nil
+		}
+	}
+	var t T
+	return t, false, nil
 }
 
 func Filter[T any](data []T, fn func(T) (bool, error)) ([]T, error) {
