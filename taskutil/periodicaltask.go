@@ -37,16 +37,12 @@ func NewPeriodicalTask(interval time.Duration, fn func()) (*PeriodicalTask, erro
 func (t *PeriodicalTask) Start() {
 	t.startOnce.Do(func() {
 		go func() {
-			ticker := time.NewTicker(t.interval)
-			defer ticker.Stop()
 			for {
-				select {
-				case <-ticker.C:
-					t.Execute()
-					break
-				case <-t.ctx.Done():
+				if t.ctx.Err() != nil {
 					return
 				}
+				t.Execute()
+				time.Sleep(t.interval)
 			}
 		}()
 	})
