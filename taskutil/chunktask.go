@@ -33,7 +33,7 @@ func NewChunkTask[T any](triggerSize int, fn FlushFn[T], flushInterval time.Dura
 		mu:          sync.Mutex{},
 		triggerSize: triggerSize,
 		dataSize:    0,
-		chunkList:   make([]Chunk[T], 0, 8),
+		chunkList:   make([]Chunk[T], 0, triggerSize),
 		fn:          fn,
 	}
 	pt, _ := NewPeriodicalTask(flushInterval, ret.Flush)
@@ -62,7 +62,7 @@ func (t *ChunkTask[T]) Flush() {
 		threadutil.RunSafe(func() {
 			t.fn(t.chunkList)
 		})
-		t.chunkList = make([]Chunk[T], 0, 8)
+		t.chunkList = make([]Chunk[T], 0, t.triggerSize)
 		t.dataSize = 0
 	}
 }
