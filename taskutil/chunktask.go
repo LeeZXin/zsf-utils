@@ -58,11 +58,13 @@ func (t *ChunkTask[T]) Execute(data T, dataSize int) {
 func (t *ChunkTask[T]) Flush() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	threadutil.RunSafe(func() {
-		t.fn(t.chunkList)
-	})
-	t.chunkList = make([]Chunk[T], 0, 8)
-	t.dataSize = 0
+	if len(t.chunkList) > 0 {
+		threadutil.RunSafe(func() {
+			t.fn(t.chunkList)
+		})
+		t.chunkList = make([]Chunk[T], 0, 8)
+		t.dataSize = 0
+	}
 }
 
 func (t *ChunkTask[T]) Clear() {
