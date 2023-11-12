@@ -6,10 +6,10 @@ require (
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.3.1
-	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/shopspring/decimal v1.3.1
 	github.com/spf13/cast v1.5.1
 	github.com/yuin/gopher-lua v1.1.0
+	gopkg.in/ini.v1 v1.67.0
 )
 
 require (
@@ -50,7 +50,6 @@ require (
 	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
-	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
