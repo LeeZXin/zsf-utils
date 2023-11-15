@@ -53,6 +53,19 @@ func NewRetryableHttpClient() *http.Client {
 	}
 }
 
+// NewHttpClient http client
+func NewHttpClient() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSHandshakeTimeout: 10 * time.Second,
+			MaxIdleConns:        100,
+			IdleConnTimeout:     time.Minute,
+			MaxConnsPerHost:     10,
+		},
+		Timeout: 30 * time.Second,
+	}
+}
+
 func Post(client *http.Client, url string, header map[string]string, req, resp any) error {
 	var (
 		reqJson []byte
