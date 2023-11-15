@@ -19,3 +19,7 @@ func (e *errorSelector[T]) Select(...string) (node Node[T], err error) {
 func (e *errorSelector[T]) GetNodes() []Node[T] {
 	return nil
 }
+
+func (e *errorSelector[T]) Size() int {
+	return 0
+}

@@ -26,6 +26,8 @@ type Selector[T any] interface {
 	Select(...string) (Node[T], error)
 	// GetNodes 获取nodes
 	GetNodes() []Node[T]
+	// Size 获取node size
+	Size() int
 }
 
 // Node 路由节点信息

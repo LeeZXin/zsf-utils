@@ -26,6 +26,10 @@ func (s *HashSelector[T]) GetNodes() []Node[T] {
 	return s.Nodes
 }
 
+func (s *HashSelector[T]) Size() int {
+	return len(s.Nodes)
+}
+
 func NewHashSelector[T any](nodes []Node[T]) Selector[T] {
 	if len(nodes) == 0 {
 		return newErrorSelector[T](EmptyNodesErr)

@@ -30,6 +30,10 @@ func (s *WeightedRoundRobinSelector[T]) Select(...string) (Node[T], error) {
 	}
 }
 
+func (s *WeightedRoundRobinSelector[T]) Size() int {
+	return len(s.nodes)
+}
+
 func (s *WeightedRoundRobinSelector[T]) maxWeight() int {
 	m := 0
 	for _, server := range s.nodes {

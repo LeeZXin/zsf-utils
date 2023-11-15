@@ -18,3 +18,7 @@ func (s *singleNodeSelector[T]) Select(...string) (Node[T], error) {
 func (s *singleNodeSelector[T]) GetNodes() []Node[T] {
 	return []Node[T]{s.node}
 }
+
+func (s *singleNodeSelector[T]) Size() int {
+	return 1
+}

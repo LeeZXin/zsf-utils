@@ -20,6 +20,10 @@ func (s *RoundRobinSelector[T]) GetNodes() []Node[T] {
 	return s.nodes
 }
 
+func (s *RoundRobinSelector[T]) Size() int {
+	return len(s.nodes)
+}
+
 func NewRoundRobinSelector[T any](nodes []Node[T]) Selector[T] {
 	if len(nodes) == 0 {
 		return &errorSelector[T]{
