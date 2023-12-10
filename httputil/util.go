@@ -2,6 +2,7 @@ package httputil
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -66,7 +67,7 @@ func NewHttpClient() *http.Client {
 	}
 }
 
-func Post(client *http.Client, url string, header map[string]string, req, resp any) error {
+func Post(ctx context.Context, client *http.Client, url string, header map[string]string, req, resp any) error {
 	var (
 		reqJson []byte
 		err     error
@@ -79,7 +80,7 @@ func Post(client *http.Client, url string, header map[string]string, req, resp a
 	} else {
 		reqJson = []byte{}
 	}
-	request, err := http.NewRequest("POST", url, bytes.NewReader(reqJson))
+	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqJson))
 	if err != nil {
 		return err
 	}
@@ -104,8 +105,8 @@ func Post(client *http.Client, url string, header map[string]string, req, resp a
 	return nil
 }
 
-func Get(client *http.Client, url string, header map[string]string, resp any) error {
-	request, err := http.NewRequest("GET", url, nil)
+func Get(ctx context.Context, client *http.Client, url string, header map[string]string, resp any) error {
+	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
 	}
