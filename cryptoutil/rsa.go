@@ -9,26 +9,12 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"golang.org/x/crypto/ssh"
+	"io"
 	"math/big"
+	"os"
 	"time"
 )
-
-func generateRSAKeyPair(bits int) *rsa.PrivateKey {
-	ret, _ := rsa.GenerateKey(rand.Reader, bits)
-	return ret
-}
-
-func Generate3072RSAKeyPair() *rsa.PrivateKey {
-	return generateRSAKeyPair(3072)
-}
-
-func Generate2048RSAKeyPair() *rsa.PrivateKey {
-	return generateRSAKeyPair(2048)
-}
-
-func Generate1024RSAKeyPair() *rsa.PrivateKey {
-	return generateRSAKeyPair(1024)
-}
 
 type rsaOAEP struct {
 	pri   *rsa.PrivateKey
@@ -294,9 +280,12 @@ func GeneratePemPKIXPublicKeyPem(key *rsa.PrivateKey) (string, error) {
 	return string(ret), nil
 }
 
-func GenerateCAPem(key *rsa.PrivateKey, subject pkix.Name, expireTime time.Time) (string, error) {
+func GenerateCAPem(key *rsa.PrivateKey, subject pkix.Name, expireTime time.Time, writer io.Writer) error {
 	if key == nil {
-		return "", errors.New("empty private key")
+		return errors.New("empty private key")
+	}
+	if writer == nil {
+		return errors.New("nil writer")
 	}
 	// Define the certificate template
 	now := time.Now()
@@ -306,13 +295,63 @@ func GenerateCAPem(key *rsa.PrivateKey, subject pkix.Name, expireTime time.Time)
 		NotBefore:             now,
 		NotAfter:              expireTime,
 		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDigitalSignature,
 		BasicConstraintsValid: true,
 	}
 	caCertBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
 	if err != nil {
-		return "", err
+		return err
 	}
 	// Encode the certificate and private key to PEM format
-	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caCertBytes})), nil
+	return pem.Encode(writer, &pem.Block{Type: "CERTIFICATE", Bytes: caCertBytes})
+}
+
+func WriteSshKeyPair(keyPath string) error {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return err
+	}
+	privateKeyPEM := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)}
+	f, err := os.OpenFile(keyPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err = pem.Encode(f, privateKeyPEM); err != nil {
+		return err
+	}
+	pub, err := ssh.NewPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return err
+	}
+	public := ssh.MarshalAuthorizedKey(pub)
+	p, err := os.OpenFile(keyPath+".pub", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer p.Close()
+	_, err = p.Write(public)
+	return err
+}
+
+func WriteCaKeyPair(keyPath string, subject pkix.Name, expireTime time.Time) error {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return err
+	}
+	privateKeyPEM := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)}
+	f, err := os.OpenFile(keyPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err = pem.Encode(f, privateKeyPEM); err != nil {
+		return err
+	}
+	p, err := os.OpenFile(keyPath+".ca", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer p.Close()
+	return GenerateCAPem(privateKey, subject, expireTime, p)
 }
