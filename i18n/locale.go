@@ -36,8 +36,8 @@ func (*defaultLocale) Get(string) string {
 	return ""
 }
 
-func (*defaultLocale) GetOrDefault(string, string) string {
-	return ""
+func (*defaultLocale) GetOrDefault(_ string, ret string) string {
+	return ret
 }
 
 func (*defaultLocale) Exists(string) bool {
