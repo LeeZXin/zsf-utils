@@ -68,3 +68,7 @@ func (e *SingleCacheEntry[T]) LoadData(ctx context.Context) (T, error) {
 	}
 	return e.data.Load(), nil
 }
+
+func (e *SingleCacheEntry[T]) Clear() {
+	e.expireTime.Store(time.Time{})
+}
