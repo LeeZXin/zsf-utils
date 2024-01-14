@@ -18,6 +18,10 @@ type BaseResp struct {
 	Message string `json:"message"`
 }
 
+func (r *BaseResp) IsSuccess() bool {
+	return r.Code == 0
+}
+
 func HandleErr(err error, c *gin.Context) {
 	if err != nil {
 		berr, ok := err.(*bizerr.Err)
