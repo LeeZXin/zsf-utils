@@ -5,12 +5,12 @@ import (
 )
 
 type notifier interface {
-	notify(base iBase)
+	notify(base IBase)
 }
 
 type relay struct {
 	f notifier
-	b iBase
+	b IBase
 }
 
 func (r *relay) fire() {
@@ -21,7 +21,7 @@ func (r *relay) priority() int {
 	return syncPriority
 }
 
-func (r *relay) checkAndAppend(iBase) bool {
+func (r *relay) checkAndAppend(IBase) bool {
 	return false
 }
 
@@ -60,15 +60,15 @@ func (f *allOfFuture) fire() {
 	}
 }
 
-func ThenAllOf(bases ...iBase) Future[any] {
+func ThenAllOf(bases ...IBase) Future[any] {
 	return thenAllOf(false, bases...)
 }
 
-func ThenAllOfAsync(bases ...iBase) Future[any] {
+func ThenAllOfAsync(bases ...IBase) Future[any] {
 	return thenAllOf(true, bases...)
 }
 
-func thenAllOf(isAsync bool, bases ...iBase) Future[any] {
+func thenAllOf(isAsync bool, bases ...IBase) Future[any] {
 	if len(bases) == 0 {
 		return newKnownErrorFuture[any](errors.New("nil futures"))
 	}

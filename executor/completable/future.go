@@ -21,15 +21,15 @@ type CallFunc[T any] func() (T, error)
 type ApplyFunc[T, K any] func(T) (K, error)
 type CombineFunc[T, K, L any] func(T, K) (L, error)
 
-type iBase interface {
+type IBase interface {
 	priority() int
 	fire()
 	joinAndGet() (any, error)
-	checkAndAppend(i iBase) bool
+	checkAndAppend(i IBase) bool
 }
 
 type Future[T any] interface {
-	iBase
+	IBase
 	Get() (T, error)
 	GetWithTimeout(timeout time.Duration) (T, error)
 }
@@ -46,7 +46,7 @@ type callFuture[T any] struct {
 	done     chan struct{}
 	callFunc CallFunc[T]
 	isAsync  bool
-	arr      []iBase
+	arr      []IBase
 }
 
 func newCallFuture[T any](c CallFunc[T], isAsync bool) *callFuture[T] {
@@ -55,7 +55,7 @@ func newCallFuture[T any](c CallFunc[T], isAsync bool) *callFuture[T] {
 		done:     make(chan struct{}, 1),
 		callFunc: c,
 		isAsync:  isAsync,
-		arr:      make([]iBase, 0),
+		arr:      make([]IBase, 0),
 	}
 }
 
@@ -113,7 +113,7 @@ func (c *callFuture[T]) getFutureResult() *futureResult[T] {
 	return c.result
 }
 
-func (c *callFuture[T]) checkAndAppend(b iBase) bool {
+func (c *callFuture[T]) checkAndAppend(b IBase) bool {
 	if b == nil {
 		return false
 	}
@@ -189,6 +189,6 @@ func (f *knownErrorFuture[T]) GetWithTimeout(_ time.Duration) (T, error) {
 	return f.Result, f.Err
 }
 
-func (f *knownErrorFuture[T]) checkAndAppend(_ iBase) bool {
+func (f *knownErrorFuture[T]) checkAndAppend(_ IBase) bool {
 	return false
 }

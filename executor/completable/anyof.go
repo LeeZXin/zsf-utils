@@ -13,22 +13,22 @@ type anyOfFuture struct {
 	err        error
 	done       bool
 	doneChan   chan struct{}
-	notifyChan chan iBase
-	arr        []iBase
-	bases      []iBase
+	notifyChan chan IBase
+	arr        []IBase
+	bases      []IBase
 }
 
-func newAnyOfFuture(bases ...iBase) *anyOfFuture {
+func newAnyOfFuture(bases ...IBase) *anyOfFuture {
 	return &anyOfFuture{
 		Mutex:      sync.Mutex{},
 		doneChan:   make(chan struct{}, 1),
-		notifyChan: make(chan iBase, len(bases)),
-		arr:        make([]iBase, 0),
+		notifyChan: make(chan IBase, len(bases)),
+		arr:        make([]IBase, 0),
 		bases:      bases,
 	}
 }
 
-func (f *anyOfFuture) checkAndAppend(i iBase) bool {
+func (f *anyOfFuture) checkAndAppend(i IBase) bool {
 	if i == nil {
 		return false
 	}
@@ -45,7 +45,7 @@ func (f *anyOfFuture) checkAndAppend(i iBase) bool {
 	return true
 }
 
-func (f *anyOfFuture) notify(b iBase) {
+func (f *anyOfFuture) notify(b IBase) {
 	if b == nil {
 		return
 	}
@@ -141,15 +141,15 @@ func (f *anyOfFuture) postComplete() {
 	}
 }
 
-func ThenAnyOf(bases ...iBase) Future[any] {
+func ThenAnyOf(bases ...IBase) Future[any] {
 	return thenAnyOf(false, bases...)
 }
 
-func ThenAnyOfAsync(bs ...iBase) Future[any] {
+func ThenAnyOfAsync(bs ...IBase) Future[any] {
 	return thenAnyOf(true, bs...)
 }
 
-func thenAnyOf(isAsync bool, bs ...iBase) Future[any] {
+func thenAnyOf(isAsync bool, bs ...IBase) Future[any] {
 	if len(bs) == 0 {
 		return newKnownErrorFuture[any](errors.New("nil futures"))
 	}
