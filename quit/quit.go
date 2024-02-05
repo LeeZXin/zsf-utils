@@ -13,15 +13,21 @@ import (
 type ShutdownHook func()
 
 var (
-	hookList = make([]ShutdownHook, 0)
-	mu       = sync.Mutex{}
+	hookList     = make([]ShutdownHook, 0)
+	priorityList = make([]ShutdownHook, 0)
+	mu           = sync.Mutex{}
 )
 
-func AddShutdownHook(hook ShutdownHook) {
+// AddShutdownHook 添加关闭钩子 isPriority 放入优先队列
+func AddShutdownHook(hook ShutdownHook, isPriority ...bool) {
 	if hook != nil {
 		mu.Lock()
 		defer mu.Unlock()
-		hookList = append(hookList, hook)
+		if len(isPriority) > 0 && isPriority[0] {
+			priorityList = append(priorityList, hook)
+		} else {
+			hookList = append(hookList, hook)
+		}
 	}
 }
 
@@ -32,6 +38,10 @@ func Wait() {
 	<-quit
 	mu.Lock()
 	defer mu.Unlock()
+	// priorityList 优先关闭priorityList
+	for _, fn := range priorityList {
+		fn()
+	}
 	for _, fn := range hookList {
 		fn()
 	}
