@@ -74,7 +74,8 @@ func (e *Executor) ExecuteRunnable(runnable Runnable) error {
 		e.addWorkerMu.Unlock()
 		return errors.New("executor is down")
 	}
-	if e.workNum < e.poolSize && e.addWorker(runnable) {
+	if e.workNum < e.poolSize {
+		e.addWorker(runnable)
 		e.workNum += 1
 		e.addWorkerMu.Unlock()
 		return nil
@@ -95,6 +96,12 @@ func (e *Executor) Execute(fn func()) error {
 		return errors.New("nil function")
 	}
 	return e.ExecuteRunnable(RunnableImpl(fn))
+}
+
+func (e *Executor) CurrentWorkerNum() int {
+	e.addWorkerMu.Lock()
+	defer e.addWorkerMu.Unlock()
+	return e.workNum
 }
 
 // Submit 异步可返回函数执行结果
@@ -123,7 +130,7 @@ func (e *Executor) Shutdown() {
 }
 
 // addWorker 新增协程 并不断监听队列内容
-func (e *Executor) addWorker(runnable Runnable) bool {
+func (e *Executor) addWorker(runnable Runnable) {
 	w := worker{
 		timeout:       e.timeout,
 		queue:         e.queue,
@@ -136,5 +143,4 @@ func (e *Executor) addWorker(runnable Runnable) bool {
 		},
 	}
 	w.Run()
-	return true
 }
