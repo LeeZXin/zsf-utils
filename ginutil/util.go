@@ -22,11 +22,16 @@ func (r *BaseResp) IsSuccess() bool {
 	return r.Code == 0
 }
 
+type DataResp[T any] struct {
+	BaseResp
+	Data T `json:"data"`
+}
+
 func HandleErr(err error, c *gin.Context) {
 	if err != nil {
 		berr, ok := err.(*bizerr.Err)
 		if !ok {
-			c.String(http.StatusInternalServerError, "系统错误")
+			c.String(http.StatusInternalServerError, "")
 		} else {
 			c.JSON(http.StatusOK, BaseResp{
 				Code:    berr.Code,
@@ -39,7 +44,7 @@ func HandleErr(err error, c *gin.Context) {
 func ShouldBind(obj any, c *gin.Context) bool {
 	err := c.ShouldBind(obj)
 	if err != nil {
-		c.String(http.StatusBadRequest, "request format err")
+		c.String(http.StatusBadRequest, "")
 		return false
 	}
 	return true
@@ -51,8 +56,4 @@ func GetClientIp(c *gin.Context) string {
 		return "127.0.0.1"
 	}
 	return ip
-}
-
-func RetHttpJson(result any, c *gin.Context) {
-	c.JSON(http.StatusOK, result)
 }
