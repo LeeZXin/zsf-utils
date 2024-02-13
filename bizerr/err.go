@@ -17,3 +17,11 @@ func NewBizErr(code int, message string) *Err {
 		Message: message,
 	}
 }
+
+func IsBizErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	_, b := err.(*Err)
+	return b
+}
