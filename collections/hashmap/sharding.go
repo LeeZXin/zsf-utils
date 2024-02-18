@@ -35,19 +35,19 @@ func (s *segment[T]) del(k string) {
 	delete(s.data, k)
 }
 
-func (s *segment[T]) getOrPut(k string, v T) (T, bool) {
+func (s *segment[T]) getOrPut(k string, o T) (T, bool) {
 	v, b := s.get(k)
 	if b {
 		return v, false
 	}
 	s.Lock()
 	defer s.Unlock()
-	r, b := s.data[k]
+	v, b = s.data[k]
 	if b {
-		return r, false
+		return v, false
 	}
-	s.data[k] = v
-	return v, true
+	s.data[k] = o
+	return o, true
 }
 
 func (s *segment[T]) allKeys() []string {
