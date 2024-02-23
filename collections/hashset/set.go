@@ -8,7 +8,7 @@ type Set[T comparable] interface {
 	Contains(T) bool
 	AllKeys() []T
 	Intersect(h Set[T]) Set[T]
-	Range(func(T) bool)
+	Range(func(T))
 	Size() int
 	Clear()
 }
@@ -17,11 +17,11 @@ type HashSet[T comparable] struct {
 	m *hashmap.HashMap[T, struct{}]
 }
 
-func NewHashSet[T comparable](ts []T) *HashSet[T] {
+func NewHashSet[T comparable](t ...T) *HashSet[T] {
 	ret := &HashSet[T]{
 		m: hashmap.NewHashMap[T, struct{}](),
 	}
-	ret.Add(ts...)
+	ret.Add(t...)
 	return ret
 }
 
@@ -45,18 +45,17 @@ func (s *HashSet[T]) AllKeys() []T {
 
 func (s *HashSet[T]) Intersect(h Set[T]) Set[T] {
 	ret := NewHashSet[T](nil)
-	h.Range(func(t T) bool {
+	h.Range(func(t T) {
 		if s.Contains(t) {
 			ret.Add(t)
 		}
-		return true
 	})
 	return ret
 }
 
-func (s *HashSet[T]) Range(fn func(T) bool) {
-	s.m.Range(func(t T, s struct{}) bool {
-		return fn(t)
+func (s *HashSet[T]) Range(fn func(T)) {
+	s.m.Range(func(t T, _ struct{}) {
+		fn(t)
 	})
 }
 

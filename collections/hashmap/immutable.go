@@ -22,7 +22,7 @@ func (i *ImmutableMap[K, V]) AllKeys() []K {
 	return i.m.AllKeys()
 }
 
-func (i *ImmutableMap[K, V]) Range(fn func(K, V) bool) {
+func (i *ImmutableMap[K, V]) Range(fn func(K, V)) {
 	i.m.Range(fn)
 }
 

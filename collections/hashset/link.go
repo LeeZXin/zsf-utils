@@ -8,7 +8,7 @@ import (
 
 type LinkedHashSet[T comparable] struct {
 	s *HashSet[T]
-	e hashmap.Map[T, *list.Element]
+	e *hashmap.HashMap[T, *list.Element]
 	l *list.List
 }
 
@@ -57,24 +57,21 @@ func (s *LinkedHashSet[T]) AllKeys() []T {
 
 func (s *LinkedHashSet[T]) Intersect(h Set[T]) Set[T] {
 	ret := NewHashSet[T](nil)
-	h.Range(func(t T) bool {
+	h.Range(func(t T) {
 		if s.Contains(t) {
 			ret.Add(t)
 		}
-		return true
 	})
 	return ret
 }
 
-func (s *LinkedHashSet[T]) Range(fn func(T) bool) {
+func (s *LinkedHashSet[T]) Range(fn func(T)) {
 	if fn == nil {
 		return
 	}
 	keys := s.AllKeys()
 	for _, key := range keys {
-		if !fn(key) {
-			return
-		}
+		fn(key)
 	}
 }
 
@@ -132,15 +129,13 @@ func (c *ConcurrentLinkedHashSet[T]) Intersect(h Set[T]) Set[T] {
 	return c.s.Intersect(h)
 }
 
-func (c *ConcurrentLinkedHashSet[T]) Range(fn func(T) bool) {
+func (c *ConcurrentLinkedHashSet[T]) Range(fn func(T)) {
 	if fn == nil {
 		return
 	}
 	keys := c.AllKeys()
 	for _, key := range keys {
-		if !fn(key) {
-			return
-		}
+		fn(key)
 	}
 }
 

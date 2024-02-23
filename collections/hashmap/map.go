@@ -2,26 +2,6 @@ package hashmap
 
 import "errors"
 
-type Map[K comparable, V any] interface {
-	Get(K) (V, bool)
-	Put(K, V)
-	Contains(K) bool
-	Remove(...K)
-	AllKeys() []K
-	Range(func(K, V) bool)
-	Size() int
-	Clear()
-	GetOrDefault(K, V) V
-	GetOrPut(K, V) (V, bool)
-	GetOrPutWithLoader(K, func() (V, error)) (V, bool, error)
-	ToMap() map[K]V
-}
-
-type ConcurrentMap[K comparable, V any] interface {
-	Map[K, V]
-	RangeWithRLock(func(K, V) bool)
-}
-
 type HashMap[K comparable, V any] struct {
 	m map[K]V
 }
@@ -68,14 +48,12 @@ func (h *HashMap[K, V]) AllKeys() []K {
 	return ret
 }
 
-func (h *HashMap[K, V]) Range(fn func(K, V) bool) {
+func (h *HashMap[K, V]) Range(fn func(K, V)) {
 	if fn == nil {
 		return
 	}
 	for k, v := range h.m {
-		if !fn(k, v) {
-			return
-		}
+		fn(k, v)
 	}
 }
 
@@ -125,9 +103,8 @@ func (h *HashMap[K, V]) GetOrPutWithLoader(k K, fn func() (V, error)) (V, bool, 
 
 func (h *HashMap[K, V]) ToMap() map[K]V {
 	ret := make(map[K]V, h.Size())
-	h.Range(func(k K, v V) bool {
+	h.Range(func(k K, v V) {
 		ret[k] = v
-		return true
 	})
 	return ret
 }

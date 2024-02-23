@@ -58,21 +58,12 @@ func (m *ConcurrentHashMap[K, V]) GetOrPutWithLoader(k K, fn func() (V, error)) 
 	return m.m.GetOrPutWithLoader(k, fn)
 }
 
-func (m *ConcurrentHashMap[K, V]) Range(fn func(K, V) bool) {
+func (m *ConcurrentHashMap[K, V]) Range(fn func(K, V)) {
 	if fn == nil {
 		return
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.m.Range(fn)
-}
-
-func (m *ConcurrentHashMap[K, V]) RangeWithRLock(fn func(K, V) bool) {
-	if fn == nil {
-		return
-	}
-	m.mu.RLock()
-	defer m.mu.RUnlock()
 	m.m.Range(fn)
 }
 

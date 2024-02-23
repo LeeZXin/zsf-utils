@@ -8,8 +8,8 @@ import (
 )
 
 type LinkedHashMap[K comparable, V any] struct {
-	m Map[K, V]
-	e Map[K, *list.Element]
+	m *HashMap[K, V]
+	e *HashMap[K, *list.Element]
 	l *list.List
 
 	limitSize   int

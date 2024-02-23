@@ -46,15 +46,13 @@ func (c *ConcurrentHashSet[T]) Intersect(h Set[T]) Set[T] {
 	return c.s.Intersect(h)
 }
 
-func (c *ConcurrentHashSet[T]) Range(fn func(T) bool) {
+func (c *ConcurrentHashSet[T]) Range(fn func(T)) {
 	if fn == nil {
 		return
 	}
 	keys := c.AllKeys()
 	for _, key := range keys {
-		if !fn(key) {
-			return
-		}
+		fn(key)
 	}
 }
 
