@@ -55,7 +55,7 @@ func (e *ExecContext) LuaExecutor() *luautil.ScriptExecutor {
 }
 
 type DAGExecutor struct {
-	handlerMap  hashmap.Map[string, Handler]
+	handlerMap  *hashmap.HashMap[string, Handler]
 	luaExecutor *luautil.ScriptExecutor
 	limitTimes  int
 }
@@ -199,7 +199,7 @@ func (d *DAGExecutor) buildNode(config NodeConfig) (*Node, error) {
 	}, nil
 }
 
-func (d *DAGExecutor) buildNodes(config []NodeConfig) (hashmap.Map[string, *Node], error) {
+func (d *DAGExecutor) buildNodes(config []NodeConfig) (*hashmap.HashMap[string, *Node], error) {
 	if config == nil {
 		return hashmap.NewHashMap[string, *Node](), nil
 	}

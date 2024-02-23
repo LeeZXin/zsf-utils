@@ -62,8 +62,8 @@ func Map[T, K any](data []T, mapper func(T) (K, error)) ([]K, error) {
 	return ret, nil
 }
 
-func Distinct[T comparable](data []T) []T {
-	return hashset.NewHashSet(data).AllKeys()
+func Distinct[T comparable](data ...T) []T {
+	return hashset.NewHashSet(data...).AllKeys()
 }
 
 func Partition[T any](data []T, size int) [][]T {

@@ -66,7 +66,7 @@ func (m *StringFeatureHandler) GetDataType() string {
 }
 
 // Handle 实际处理逻辑
-func (m *StringFeatureHandler) Handle(value *StringValue, operator *Operator, userValue any, ctx *FeatureAnalyseContext) (bool, error) {
+func (m *StringFeatureHandler) Handle(value *StringValue, operator *Operator, userValue any, _ *FeatureAnalyseContext) (bool, error) {
 	actual := cast.ToString(userValue)
 	targets := operator.ValueSplitter.SplitValue(value.Value)
 	return m.opMap[operator](actual, targets), nil
@@ -139,7 +139,7 @@ func (m *NumberFeatureHandler) GetDataType() string {
 }
 
 // Handle 实际处理逻辑
-func (m *NumberFeatureHandler) Handle(value *StringValue, operator *Operator, userValue any, ctx *FeatureAnalyseContext) (bool, error) {
+func (m *NumberFeatureHandler) Handle(value *StringValue, operator *Operator, userValue any, _ *FeatureAnalyseContext) (bool, error) {
 	actual := cast.ToString(userValue)
 	targets := operator.ValueSplitter.SplitValue(value.Value)
 	actualDecimal, err := decimal.NewFromString(actual)
@@ -234,7 +234,7 @@ func (m *ScriptFeatureHandler) GetDataType() string {
 }
 
 // Handle 实际处理逻辑
-func (m *ScriptFeatureHandler) Handle(value *StringValue, operator *Operator, userValue any, ctx *FeatureAnalyseContext) (bool, error) {
+func (m *ScriptFeatureHandler) Handle(value *StringValue, _ *Operator, userValue any, ctx *FeatureAnalyseContext) (bool, error) {
 	if value == nil {
 		return false, errors.New("empty script config string value")
 	}

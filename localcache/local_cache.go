@@ -16,7 +16,7 @@ const (
 
 type segment[T any] struct {
 	expireDuration time.Duration
-	cache          hashmap.Map[string, *SingleCacheEntry[T]]
+	cache          *hashmap.ConcurrentHashMap[string, *SingleCacheEntry[T]]
 	supplier       SupplierWithKey[T]
 }
 

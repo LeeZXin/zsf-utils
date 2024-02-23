@@ -43,7 +43,7 @@ type DAG struct {
 	// startNode
 	startNode string
 	// nodes 节点信息列表
-	nodes hashmap.Map[string, *Node]
+	nodes *hashmap.HashMap[string, *Node]
 }
 
 func (d *DAG) StartNode() string {
