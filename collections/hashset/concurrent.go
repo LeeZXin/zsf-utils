@@ -9,7 +9,7 @@ type ConcurrentHashSet[T comparable] struct {
 
 func NewConcurrentHashSet[T comparable]() *ConcurrentHashSet[T] {
 	return &ConcurrentHashSet[T]{
-		s:  NewHashSet[T](nil),
+		s:  NewHashSet[T](),
 		mu: sync.RWMutex{},
 	}
 }

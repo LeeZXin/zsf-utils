@@ -14,7 +14,7 @@ type LinkedHashSet[T comparable] struct {
 
 func NewLinkedHashSet[T comparable]() *LinkedHashSet[T] {
 	return &LinkedHashSet[T]{
-		s: NewHashSet[T](nil),
+		s: NewHashSet[T](),
 		e: hashmap.NewHashMap[T, *list.Element](),
 		l: list.New(),
 	}
@@ -56,7 +56,7 @@ func (s *LinkedHashSet[T]) AllKeys() []T {
 }
 
 func (s *LinkedHashSet[T]) Intersect(h Set[T]) Set[T] {
-	ret := NewHashSet[T](nil)
+	ret := NewHashSet[T]()
 	h.Range(func(t T) {
 		if s.Contains(t) {
 			ret.Add(t)

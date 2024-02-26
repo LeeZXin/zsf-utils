@@ -44,7 +44,7 @@ func (s *HashSet[T]) AllKeys() []T {
 }
 
 func (s *HashSet[T]) Intersect(h Set[T]) Set[T] {
-	ret := NewHashSet[T](nil)
+	ret := NewHashSet[T]()
 	h.Range(func(t T) {
 		if s.Contains(t) {
 			ret.Add(t)
