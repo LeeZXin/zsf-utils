@@ -32,10 +32,6 @@ func NewSingleCacheEntry[T any](supplier Supplier[T], duration time.Duration) (*
 }
 
 func (e *SingleCacheEntry[T]) LoadData(ctx context.Context) (T, error) {
-	var (
-		result T
-		err    error
-	)
 	etime := e.expireTime.Load()
 	// 首次加载
 	if etime.IsZero() {
@@ -44,7 +40,7 @@ func (e *SingleCacheEntry[T]) LoadData(ctx context.Context) (T, error) {
 		if etime = e.expireTime.Load(); !etime.IsZero() {
 			return e.data.Load(), nil
 		}
-		result, err = e.supplier(ctx)
+		result, err := e.supplier(ctx)
 		if err != nil {
 			return result, err
 		}
@@ -57,12 +53,11 @@ func (e *SingleCacheEntry[T]) LoadData(ctx context.Context) (T, error) {
 			// 过期
 			if e.mu.TryLock() {
 				defer e.mu.Unlock()
-				result, err = e.supplier(ctx)
+				result, err := e.supplier(ctx)
 				if err == nil {
 					e.data.Store(result)
 					e.expireTime.Store(time.Now().Add(e.expireDuration))
 				}
-				return result, nil
 			}
 		}
 	}
