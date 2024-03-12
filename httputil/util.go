@@ -3,9 +3,11 @@ package httputil
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"golang.org/x/net/http2"
 	"io"
+	"net"
 	"net/http"
 	"time"
 )
@@ -41,47 +43,61 @@ func (t *RetryableRoundTripper) RoundTrip(request *http.Request) (response *http
 }
 
 // NewRetryableHttpClient http client
-func NewRetryableHttpClient(http2Enabled ...bool) *http.Client {
-	http2EnabledRet := false
-	if len(http2Enabled) > 0 {
-		http2EnabledRet = http2Enabled[0]
-	}
+func NewRetryableHttpClient() *http.Client {
 	return &http.Client{
 		Transport: &RetryableRoundTripper{
-			Delegated: newRoundTripper(http2EnabledRet),
+			Delegated: newRoundTripper(false),
+		},
+		Timeout: 30 * time.Second,
+	}
+}
+
+// NewRetryableHttp2Client retryable http2 client
+func NewRetryableHttp2Client() *http.Client {
+	return &http.Client{
+		Transport: &RetryableRoundTripper{
+			Delegated: newRoundTripper(true),
 		},
 		Timeout: 30 * time.Second,
 	}
 }
 
 func newRoundTripper(http2Enabled bool) http.RoundTripper {
-	transport := &http.Transport{
+	if http2Enabled {
+		return &http2.Transport{
+			DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+				return net.Dial(network, addr)
+			},
+			AllowHTTP:                  true,
+			StrictMaxConcurrentStreams: true,
+			ReadIdleTimeout:            5 * time.Second,
+			PingTimeout:                5 * time.Second,
+		}
+	}
+	return &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
 		TLSHandshakeTimeout: 10 * time.Second,
 		MaxIdleConns:        100,
 		IdleConnTimeout:     time.Minute,
-		MaxConnsPerHost:     10,
+		MaxConnsPerHost:     100,
+		ForceAttemptHTTP2:   true,
 	}
-	if http2Enabled {
-		ret, err := http2.ConfigureTransports(transport)
-		if err != nil {
-			panic(err)
-		}
-		ret.AllowHTTP = true
-		return ret
-	}
-	return transport
 }
 
 // NewHttpClient http client
-func NewHttpClient(http2Enabled ...bool) *http.Client {
-	if len(http2Enabled) > 0 && http2Enabled[0] {
-		return &http.Client{
-			Transport: newRoundTripper(true),
-			Timeout:   30 * time.Second,
-		}
-	}
+func NewHttpClient() *http.Client {
 	return &http.Client{
 		Transport: newRoundTripper(false),
+		Timeout:   30 * time.Second,
+	}
+}
+
+// NewHttp2Client http2 client
+func NewHttp2Client() *http.Client {
+	return &http.Client{
+		Transport: newRoundTripper(true),
 		Timeout:   30 * time.Second,
 	}
 }
