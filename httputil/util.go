@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"golang.org/x/net/http2"
 	"io"
 	"net/http"
 	"time"
@@ -40,30 +41,47 @@ func (t *RetryableRoundTripper) RoundTrip(request *http.Request) (response *http
 }
 
 // NewRetryableHttpClient http client
-func NewRetryableHttpClient() *http.Client {
+func NewRetryableHttpClient(http2Enabled ...bool) *http.Client {
+	http2EnabledRet := false
+	if len(http2Enabled) > 0 {
+		http2EnabledRet = http2Enabled[0]
+	}
 	return &http.Client{
 		Transport: &RetryableRoundTripper{
-			Delegated: &http.Transport{
-				TLSHandshakeTimeout: 10 * time.Second,
-				MaxIdleConns:        100,
-				IdleConnTimeout:     time.Minute,
-				MaxConnsPerHost:     10,
-			},
+			Delegated: newRoundTripper(http2EnabledRet),
 		},
 		Timeout: 30 * time.Second,
 	}
 }
 
+func newRoundTripper(http2Enabled bool) http.RoundTripper {
+	transport := &http.Transport{
+		TLSHandshakeTimeout: 10 * time.Second,
+		MaxIdleConns:        100,
+		IdleConnTimeout:     time.Minute,
+		MaxConnsPerHost:     10,
+	}
+	if http2Enabled {
+		ret, err := http2.ConfigureTransports(transport)
+		if err != nil {
+			panic(err)
+		}
+		return ret
+	}
+	return transport
+}
+
 // NewHttpClient http client
-func NewHttpClient() *http.Client {
+func NewHttpClient(http2Enabled ...bool) *http.Client {
+	if len(http2Enabled) > 0 && http2Enabled[0] {
+		return &http.Client{
+			Transport: newRoundTripper(true),
+			Timeout:   30 * time.Second,
+		}
+	}
 	return &http.Client{
-		Transport: &http.Transport{
-			TLSHandshakeTimeout: 10 * time.Second,
-			MaxIdleConns:        100,
-			IdleConnTimeout:     time.Minute,
-			MaxConnsPerHost:     10,
-		},
-		Timeout: 30 * time.Second,
+		Transport: newRoundTripper(false),
+		Timeout:   30 * time.Second,
 	}
 }
 
