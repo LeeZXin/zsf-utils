@@ -66,6 +66,7 @@ func newRoundTripper(http2Enabled bool) http.RoundTripper {
 		if err != nil {
 			panic(err)
 		}
+		ret.AllowHTTP = true
 		return ret
 	}
 	return transport
