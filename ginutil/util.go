@@ -27,6 +27,11 @@ type DataResp[T any] struct {
 	Data T `json:"data"`
 }
 
+type PageResp[T any] struct {
+	DataResp[T]
+	Next int64 `json:"next"`
+}
+
 func HandleErr(err error, c *gin.Context) {
 	if err != nil {
 		berr, ok := err.(*bizerr.Err)
