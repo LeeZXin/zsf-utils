@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"golang.org/x/net/http2"
 	"io"
 	"net"
@@ -130,6 +131,9 @@ func Post(ctx context.Context, client *http.Client, url string, header map[strin
 		return err
 	}
 	defer post.Body.Close()
+	if post.StatusCode >= http.StatusBadRequest {
+		return fmt.Errorf("http request return code: %v", post.StatusCode)
+	}
 	respBody, err := io.ReadAll(post.Body)
 	if err != nil {
 		return err
@@ -155,6 +159,9 @@ func Get(ctx context.Context, client *http.Client, url string, header map[string
 		return err
 	}
 	defer get.Body.Close()
+	if get.StatusCode >= http.StatusBadRequest {
+		return fmt.Errorf("http request return code: %v", get.StatusCode)
+	}
 	respBody, err := io.ReadAll(get.Body)
 	if err != nil {
 		return err
