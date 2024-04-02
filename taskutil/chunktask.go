@@ -46,6 +46,7 @@ func (t *ChunkTask[T]) Start() {
 }
 
 func (t *ChunkTask[T]) Stop() {
+	t.Flush()
 	t.pt.Stop()
 }
 
