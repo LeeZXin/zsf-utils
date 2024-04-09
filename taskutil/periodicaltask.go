@@ -9,9 +9,8 @@ import (
 )
 
 type PeriodicalTask struct {
-	interval, delay time.Duration
-
-	fn func()
+	interval time.Duration
+	fn       func()
 
 	ctx      context.Context
 	cancelFn context.CancelFunc
@@ -20,13 +19,12 @@ type PeriodicalTask struct {
 	stopOnce  sync.Once
 }
 
-func NewPeriodicalTask(delay, interval time.Duration, fn func()) (*PeriodicalTask, error) {
+func NewPeriodicalTask(interval time.Duration, fn func()) (*PeriodicalTask, error) {
 	if interval == 0 || fn == nil {
 		return nil, errors.New("invalid task arguments")
 	}
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &PeriodicalTask{
-		delay:     delay,
 		interval:  interval,
 		fn:        fn,
 		ctx:       ctx,
@@ -39,15 +37,12 @@ func NewPeriodicalTask(delay, interval time.Duration, fn func()) (*PeriodicalTas
 func (t *PeriodicalTask) Start() {
 	t.startOnce.Do(func() {
 		go func() {
-			if t.delay > 0 {
-				time.Sleep(t.delay)
-			}
 			for {
 				if t.ctx.Err() != nil {
 					return
 				}
-				t.Execute()
 				time.Sleep(t.interval)
+				t.Execute()
 			}
 		}()
 	})

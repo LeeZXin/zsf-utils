@@ -36,7 +36,7 @@ func NewChunkTask[T any](triggerSize int, fn FlushFn[T], flushInterval time.Dura
 		chunkList:   make([]Chunk[T], 0, triggerSize),
 		fn:          fn,
 	}
-	pt, _ := NewPeriodicalTask(flushInterval, flushInterval, ret.Flush)
+	pt, _ := NewPeriodicalTask(flushInterval, ret.Flush)
 	ret.pt = pt
 	return ret, nil
 }
