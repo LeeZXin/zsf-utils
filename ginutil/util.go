@@ -28,7 +28,7 @@ type DataResp[T any] struct {
 }
 
 type PageResp[T any] struct {
-	DataResp[T]
+	DataResp[[]T]
 	Next int64 `json:"next"`
 }
 
