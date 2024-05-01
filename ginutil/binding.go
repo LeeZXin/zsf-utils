@@ -18,7 +18,11 @@ func BindParams(c *gin.Context, ptr any) error {
 	if err != nil {
 		return err
 	}
-	return decoder.Decode(params)
+	err = decoder.Decode(params)
+	if err != nil {
+		return err
+	}
+	return validate(ptr)
 }
 
 func BindQuery(c *gin.Context, ptr any) error {
