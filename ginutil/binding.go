@@ -2,6 +2,7 @@ package ginutil
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -18,4 +19,19 @@ func BindParams(c *gin.Context, ptr any) error {
 		return err
 	}
 	return decoder.Decode(params)
+}
+
+func BindQuery(c *gin.Context, ptr any) error {
+	err := binding.MapFormWithTag(ptr, c.Request.URL.Query(), "json")
+	if err != nil {
+		return err
+	}
+	return validate(ptr)
+}
+
+func validate(obj any) error {
+	if binding.Validator == nil {
+		return nil
+	}
+	return binding.Validator.ValidateStruct(obj)
 }
