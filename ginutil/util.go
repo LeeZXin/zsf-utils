@@ -6,22 +6,6 @@ import (
 	"net/http"
 )
 
-type PageDirection string
-
-const (
-	PreviousPage PageDirection = "previous"
-	NextPage     PageDirection = "next"
-)
-
-func (d PageDirection) IsValid() bool {
-	switch d {
-	case PreviousPage, NextPage:
-		return true
-	default:
-		return false
-	}
-}
-
 var (
 	DefaultSuccessResp = BaseResp{
 		Code:    0,
@@ -44,9 +28,8 @@ type DataResp[T any] struct {
 }
 
 type PageReq struct {
-	Cursor    int64         `json:"cursor"`
-	Limit     int           `json:"limit"`
-	Direction PageDirection `json:"direction"`
+	Cursor int64 `json:"cursor"`
+	Limit  int   `json:"limit"`
 }
 
 type PageResp[T any] struct {
