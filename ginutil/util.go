@@ -6,6 +6,22 @@ import (
 	"net/http"
 )
 
+type PageDirection string
+
+const (
+	PreviousPage PageDirection = "previous"
+	NextPage     PageDirection = "next"
+)
+
+func (d PageDirection) IsValid() bool {
+	switch d {
+	case PreviousPage, NextPage:
+		return true
+	default:
+		return false
+	}
+}
+
 var (
 	DefaultSuccessResp = BaseResp{
 		Code:    0,
@@ -27,9 +43,26 @@ type DataResp[T any] struct {
 	Data T `json:"data"`
 }
 
+type PageReq struct {
+	Cursor    int64         `json:"cursor"`
+	Limit     int           `json:"limit"`
+	Direction PageDirection `json:"direction"`
+}
+
 type PageResp[T any] struct {
 	DataResp[[]T]
 	Next int64 `json:"next"`
+}
+
+type Page2Req struct {
+	PageNum  int `json:"pageNum"`
+	PageSize int `json:"pageSize"`
+}
+
+type Page2Resp[T any] struct {
+	DataResp[[]T]
+	PageNum    int   `json:"pageNum"`
+	TotalCount int64 `json:"totalCount"`
 }
 
 func HandleErr(err error, c *gin.Context) {
