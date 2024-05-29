@@ -1,8 +1,8 @@
 package taskutil
 
 import (
+	"context"
 	"errors"
-	"github.com/LeeZXin/zsf-utils/threadutil"
 	"sync"
 	"time"
 )
@@ -12,70 +12,57 @@ type Chunk[T any] struct {
 	Data T
 }
 
-type FlushFn[T any] func([]Chunk[T])
+type FlushFunc[T any] func([]Chunk[T])
 
-type ChunkTask[T any] struct {
-	mu sync.Mutex
+type ChunkTaskExecutor[T any] func(data T, dataSize int)
 
+type ChunkTaskFlusher func()
+
+type chunkTask[T any] struct {
+	mu          sync.Mutex
 	triggerSize int
 	dataSize    int
 	chunkList   []Chunk[T]
-
-	fn FlushFn[T]
-	pt *PeriodicalTask
+	flushFunc   FlushFunc[T]
 }
 
-func NewChunkTask[T any](triggerSize int, fn FlushFn[T], flushInterval time.Duration) (*ChunkTask[T], error) {
-	if fn == nil || flushInterval <= 0 {
-		return nil, errors.New("invalid task arguments")
+func RunChunkTask[T any](triggerSize int, flushFunc FlushFunc[T], flushInterval time.Duration) (ChunkTaskExecutor[T], ChunkTaskFlusher, Stopper, error) {
+	if flushFunc == nil || flushInterval <= 0 || triggerSize <= 0 {
+		return nil, nil, nil, errors.New("invalid args")
 	}
-	ret := &ChunkTask[T]{
-		mu:          sync.Mutex{},
+	task := &chunkTask[T]{
 		triggerSize: triggerSize,
-		dataSize:    0,
 		chunkList:   make([]Chunk[T], 0, triggerSize),
-		fn:          fn,
+		flushFunc:   flushFunc,
 	}
-	pt, _ := NewPeriodicalTask(flushInterval, ret.Flush)
-	ret.pt = pt
-	return ret, nil
+	periodicalTask, _ := RunPeriodicalTask(flushInterval, flushInterval, func(context.Context) {
+		task.Flush()
+	})
+	return task.Execute, task.Flush, NewContextStopper(func() {
+		task.Flush()
+		periodicalTask.Stop()
+	}), nil
 }
 
-func (t *ChunkTask[T]) Start() {
-	t.pt.Start()
+func (t *chunkTask[T]) Execute(data T, dataSize int) {
+	t.addAndFlush(data, dataSize)
 }
 
-func (t *ChunkTask[T]) Stop() {
-	t.Flush()
-	t.pt.Stop()
-}
-
-func (t *ChunkTask[T]) Execute(data T, dataSize int) {
-	if t.add(data, dataSize) {
-		t.Flush()
-	}
-}
-
-func (t *ChunkTask[T]) Flush() {
+func (t *chunkTask[T]) Flush() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	t.flush()
+}
+
+func (t *chunkTask[T]) flush() {
 	if len(t.chunkList) > 0 {
-		threadutil.RunSafe(func() {
-			t.fn(t.chunkList)
-		})
+		t.flushFunc(t.chunkList)
 		t.chunkList = make([]Chunk[T], 0, t.triggerSize)
 		t.dataSize = 0
 	}
 }
 
-func (t *ChunkTask[T]) Clear() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.chunkList = make([]Chunk[T], 0, 8)
-	t.dataSize = 0
-}
-
-func (t *ChunkTask[T]) add(data T, size int) bool {
+func (t *chunkTask[T]) addAndFlush(data T, size int) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.chunkList = append(t.chunkList, Chunk[T]{
@@ -83,5 +70,7 @@ func (t *ChunkTask[T]) add(data T, size int) bool {
 		Data: data,
 	})
 	t.dataSize += size
-	return t.dataSize >= t.triggerSize
+	if t.dataSize >= t.triggerSize {
+		t.flush()
+	}
 }
