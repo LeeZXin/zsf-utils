@@ -14,9 +14,9 @@ type Chunk[T any] struct {
 
 type FlushFunc[T any] func([]Chunk[T])
 
-type ChunkTaskExecutor[T any] func(data T, dataSize int)
+type ChunkTaskExecuteFunc[T any] func(data T, dataSize int)
 
-type ChunkTaskFlusher func()
+type ChunkTaskFlushFunc func()
 
 type chunkTask[T any] struct {
 	mu          sync.Mutex
@@ -26,7 +26,7 @@ type chunkTask[T any] struct {
 	flushFunc   FlushFunc[T]
 }
 
-func RunChunkTask[T any](triggerSize int, flushFunc FlushFunc[T], flushInterval time.Duration) (ChunkTaskExecutor[T], ChunkTaskFlusher, Stopper, error) {
+func RunChunkTask[T any](triggerSize int, flushFunc FlushFunc[T], flushInterval time.Duration) (ChunkTaskExecuteFunc[T], ChunkTaskFlushFunc, StopFunc, error) {
 	if flushFunc == nil || flushInterval <= 0 || triggerSize <= 0 {
 		return nil, nil, nil, errors.New("invalid args")
 	}
@@ -35,12 +35,12 @@ func RunChunkTask[T any](triggerSize int, flushFunc FlushFunc[T], flushInterval 
 		chunkList:   make([]Chunk[T], 0, triggerSize),
 		flushFunc:   flushFunc,
 	}
-	periodicalTask, _ := RunPeriodicalTask(flushInterval, flushInterval, func(context.Context) {
+	ptStop, _ := RunPeriodicalTask(flushInterval, flushInterval, func(context.Context) {
 		task.Flush()
 	})
 	return task.Execute, task.Flush, NewContextStopper(func() {
 		task.Flush()
-		periodicalTask.Stop()
+		ptStop()
 	}), nil
 }
 

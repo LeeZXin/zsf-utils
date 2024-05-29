@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func RunPeriodicalTask(delay, interval time.Duration, handler func(context.Context)) (Stopper, error) {
+func RunPeriodicalTask(delay, interval time.Duration, handler func(context.Context)) (StopFunc, error) {
 	if interval <= 0 || handler == nil {
 		return nil, errors.New("invalid args")
 	}

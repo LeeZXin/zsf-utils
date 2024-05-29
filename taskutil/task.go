@@ -5,16 +5,14 @@ import (
 	"sync"
 )
 
-type Stopper interface {
-	Stop()
-}
+type StopFunc func()
 
 type contextStopper struct {
 	stopOnce sync.Once
 	cancelFn context.CancelFunc
 }
 
-func (s *contextStopper) Stop() {
+func (s *contextStopper) stop() {
 	s.stopOnce.Do(func() {
 		if s.cancelFn != nil {
 			s.cancelFn()
@@ -22,8 +20,9 @@ func (s *contextStopper) Stop() {
 	})
 }
 
-func NewContextStopper(cancelFunc context.CancelFunc) Stopper {
-	return &contextStopper{
+func NewContextStopper(cancelFunc context.CancelFunc) StopFunc {
+	stopper := &contextStopper{
 		cancelFn: cancelFunc,
 	}
+	return stopper.stop
 }

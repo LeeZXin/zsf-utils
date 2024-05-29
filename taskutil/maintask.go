@@ -18,7 +18,7 @@ type mainLoopTask struct {
 	waitDuration, renewDuration time.Duration
 }
 
-func RunMainLoopTask(handler func(context.Context), leaser lease.Leaser, waitDuration, renewDuration time.Duration) (Stopper, error) {
+func RunMainLoopTask(handler func(context.Context), leaser lease.Leaser, waitDuration, renewDuration time.Duration) (StopFunc, error) {
 	if handler == nil || leaser == nil || waitDuration <= 0 || renewDuration <= 0 {
 		return nil, errors.New("invalid args")
 	}
@@ -31,7 +31,7 @@ func RunMainLoopTask(handler func(context.Context), leaser lease.Leaser, waitDur
 	return task.Start(), nil
 }
 
-func (t *mainLoopTask) Start() Stopper {
+func (t *mainLoopTask) Start() StopFunc {
 	ctx, cancelFn := context.WithCancel(context.Background())
 	go func() {
 		for {
