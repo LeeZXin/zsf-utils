@@ -8,9 +8,9 @@ import (
 	"math"
 )
 
-type List[T comparable] []T
+type ComparableList[T comparable] []T
 
-func (l *List[T]) Contains(l2 T) bool {
+func (l *ComparableList[T]) Contains(l2 T) bool {
 	for _, item := range *l {
 		if item == l2 {
 			return true
@@ -18,6 +18,19 @@ func (l *List[T]) Contains(l2 T) bool {
 	}
 	return false
 }
+
+func (l *ComparableList[T]) FromDB(content []byte) error {
+	if l == nil {
+		*l = make([]T, 0)
+	}
+	return json.Unmarshal(content, l)
+}
+
+func (l *ComparableList[T]) ToDB() ([]byte, error) {
+	return json.Marshal(l)
+}
+
+type List[T any] []T
 
 func (l *List[T]) FromDB(content []byte) error {
 	if l == nil {
