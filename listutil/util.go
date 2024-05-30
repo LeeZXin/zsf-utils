@@ -1,11 +1,34 @@
 package listutil
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/LeeZXin/zsf-utils/collections/hashset"
 	"github.com/LeeZXin/zsf-utils/randutil"
 	"math"
 )
+
+type List[T comparable] []T
+
+func (l *List[T]) Contains(l2 T) bool {
+	for _, item := range *l {
+		if item == l2 {
+			return true
+		}
+	}
+	return false
+}
+
+func (l *List[T]) FromDB(content []byte) error {
+	if l == nil {
+		*l = make([]T, 0)
+	}
+	return json.Unmarshal(content, l)
+}
+
+func (l *List[T]) ToDB() ([]byte, error) {
+	return json.Marshal(l)
+}
 
 func Contains[T any](arr []T, fn func(T) (bool, error)) (bool, error) {
 	_, b, err := FindFirst(arr, fn)
