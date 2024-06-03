@@ -16,7 +16,7 @@ type mainLoopTask struct {
 	leaser                       lease.Leaser
 	subCancelFn                  atomic.Value
 	waitDuration, renewDuration  time.Duration
-	grantCallback, renewCallback func(bool)
+	grantCallback, renewCallback func(error, bool)
 	releaseCallback              func()
 }
 
@@ -25,8 +25,8 @@ type MainLoopTaskOpts struct {
 	Leaser          lease.Leaser
 	WaitDuration    time.Duration
 	RenewDuration   time.Duration
-	GrantCallback   func(bool)
-	RenewCallback   func(bool)
+	GrantCallback   func(error, bool)
+	RenewCallback   func(error, bool)
 	ReleaseCallback func()
 }
 
@@ -79,10 +79,10 @@ func (t *mainLoopTask) do() {
 	defer cancelFn()
 	// 尝试加锁
 	releaser, renewer, b, err := t.leaser.TryGrant()
+	if t.grantCallback != nil {
+		t.grantCallback(err, b)
+	}
 	if err == nil && b {
-		if t.grantCallback != nil {
-			t.grantCallback(true)
-		}
 		defer func() {
 			releaser.Release()
 			if t.releaseCallback != nil {
@@ -98,20 +98,13 @@ func (t *mainLoopTask) do() {
 					return
 				}
 				renewRet, err := renewer.Renew(ctx)
-				if err != nil || !renewRet {
-					if t.renewCallback != nil {
-						t.renewCallback(false)
-					}
-					return
-				}
 				if t.renewCallback != nil {
-					t.renewCallback(true)
+					t.renewCallback(err, renewRet)
+				}
+				if err != nil || !renewRet {
+					return
 				}
 			}
 		}()
-	} else {
-		if t.grantCallback != nil {
-			t.grantCallback(false)
-		}
 	}
 }
