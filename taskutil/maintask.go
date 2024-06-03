@@ -56,10 +56,7 @@ func RunMainLoopTask(opts MainLoopTaskOpts) (StopFunc, error) {
 func (t *mainLoopTask) Start() StopFunc {
 	ctx, cancelFn := context.WithCancel(context.Background())
 	go func() {
-		for {
-			if ctx.Err() != nil {
-				return
-			}
+		for ctx.Err() == nil {
 			t.do()
 			time.Sleep(t.waitDuration)
 		}
@@ -89,7 +86,6 @@ func (t *mainLoopTask) do() {
 				t.releaseCallback()
 			}
 		}()
-		t.handler(ctx)
 		// 续期
 		go func() {
 			for {
@@ -102,9 +98,12 @@ func (t *mainLoopTask) do() {
 					t.renewCallback(err, renewRet)
 				}
 				if err != nil || !renewRet {
+					cancelFn()
 					return
 				}
 			}
 		}()
+		// 执行循环函数
+		t.handler(ctx)
 	}
 }

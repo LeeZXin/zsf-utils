@@ -20,11 +20,11 @@ type Renewer interface {
 }
 
 type DbModel struct {
-	Id      int64     `json:"id" xorm:"pk autoincr"`
-	Key     string    `json:"key"`
-	Owner   string    `json:"owner"`
-	Renewed time.Time `json:"renewed"`
-	Created time.Time `json:"created" xorm:"created"`
+	Id       int64     `json:"id" xorm:"pk autoincr"`
+	LeaseKey string    `json:"leaseKey"`
+	Owner    string    `json:"owner"`
+	Renewed  time.Time `json:"renewed"`
+	Created  time.Time `json:"created" xorm:"created"`
 }
 
 type dbLease struct {
@@ -134,7 +134,7 @@ func (l *dbLease) tryGrantInTx(session *xorm.Session) (DbModel, bool, error) {
 	var md DbModel
 	// select for update
 	b, err := session.
-		Where("key = ?", l.Key).
+		Where("lease_key = ?", l.Key).
 		Table(l.TableName).
 		ForUpdate().
 		Get(&md)
@@ -144,9 +144,9 @@ func (l *dbLease) tryGrantInTx(session *xorm.Session) (DbModel, bool, error) {
 	now := time.Now()
 	if !b {
 		md = DbModel{
-			Key:     l.Key,
-			Owner:   l.Owner,
-			Renewed: now,
+			LeaseKey: l.Key,
+			Owner:    l.Owner,
+			Renewed:  now,
 		}
 		// 不存在则插入
 		_, err = session.Table(l.TableName).Insert(&md)

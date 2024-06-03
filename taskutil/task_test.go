@@ -3,9 +3,13 @@ package taskutil
 import (
 	"context"
 	"fmt"
+	"github.com/LeeZXin/zsf-utils/idutil"
+	"github.com/LeeZXin/zsf-utils/lease"
+	_ "github.com/go-sql-driver/mysql"
 	"strconv"
 	"testing"
 	"time"
+	"xorm.io/xorm"
 )
 
 func TestRunPeriodicalTask(t *testing.T) {
@@ -27,4 +31,30 @@ func TestRunChunkTask(t *testing.T) {
 		executeFunc(strconv.Itoa(i), 1)
 	}
 	time.Sleep(20 * time.Second)
+}
+
+func TestRunMainLoopTask(t *testing.T) {
+	engine, _ := xorm.NewEngine("mysql", "root:root@tcp(127.0.0.1:3306)/hhhh?charset=utf8")
+	leaser, _ := lease.NewDbLease("timer-lock", idutil.RandomUuid(), "ztimer_lock", engine, 10*time.Second)
+	RunMainLoopTask(MainLoopTaskOpts{
+		Handler: func(ctx context.Context) {
+			for ctx.Err() == nil {
+				fmt.Println(time.Now(), "fufufufu")
+				time.Sleep(5 * time.Second)
+			}
+		},
+		Leaser:        leaser,
+		WaitDuration:  10 * time.Second,
+		RenewDuration: 5 * time.Second,
+		GrantCallback: func(err error, b bool) {
+			fmt.Println(time.Now(), "grant", err, b)
+		},
+		RenewCallback: func(err error, b bool) {
+			fmt.Println(time.Now(), "renew", err, b)
+		},
+		ReleaseCallback: func() {
+			fmt.Println(time.Now(), "release")
+		},
+	})
+	select {}
 }

@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/gin-gonic/gin v1.9.1
+	github.com/go-sql-driver/mysql v1.6.0
 	github.com/google/uuid v1.3.1
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/shopspring/decimal v1.3.1
