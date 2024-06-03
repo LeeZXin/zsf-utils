@@ -62,13 +62,15 @@ func (t *mainLoopTask) do() {
 		t.handler(ctx)
 		// 续期
 		go func() {
-			time.Sleep(t.renewDuration)
-			if ctx.Err() != nil {
-				return
-			}
-			renewRet, err := renewer.Renew(ctx)
-			if err != nil || !renewRet {
-				return
+			for {
+				time.Sleep(t.renewDuration)
+				if ctx.Err() != nil {
+					return
+				}
+				renewRet, err := renewer.Renew(ctx)
+				if err != nil || !renewRet {
+					return
+				}
 			}
 		}()
 	}
