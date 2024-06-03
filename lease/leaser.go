@@ -36,11 +36,10 @@ type dbLease struct {
 }
 
 type dbReleaser struct {
-	Lease           *DbModel
-	TableName       string
-	Owner           string
-	Engine          *xorm.Engine
-	ExpiredDuration time.Duration
+	Lease     *DbModel
+	TableName string
+	Owner     string
+	Engine    *xorm.Engine
 }
 
 func (r *dbReleaser) Release() error {
@@ -49,18 +48,16 @@ func (r *dbReleaser) Release() error {
 	_, err := session.
 		Where("id = ?", r.Lease.Id).
 		And("owner = ?", r.Owner).
-		And("renewed > ?", time.Now().Add(-r.ExpiredDuration).Format(time.DateTime)).
 		Table(r.TableName).
 		Delete(new(DbModel))
 	return err
 }
 
 type dbRenewer struct {
-	Lease           *DbModel
-	TableName       string
-	Owner           string
-	Engine          *xorm.Engine
-	ExpiredDuration time.Duration
+	Lease     *DbModel
+	TableName string
+	Owner     string
+	Engine    *xorm.Engine
 }
 
 func (r *dbRenewer) Renew(context.Context) (bool, error) {
@@ -69,7 +66,6 @@ func (r *dbRenewer) Renew(context.Context) (bool, error) {
 	rows, err := session.
 		Where("id = ?", r.Lease.Id).
 		And("owner = ?", r.Owner).
-		And("renewed > ?", time.Now().Add(-r.ExpiredDuration).Format(time.DateTime)).
 		Table(r.TableName).
 		Cols("renewed").
 		Update(&DbModel{
@@ -120,17 +116,15 @@ func (l *dbLease) TryGrant() (Releaser, Renewer, bool, error) {
 	}
 	if success {
 		return &dbReleaser{
-				Lease:           &md,
-				TableName:       l.TableName,
-				Engine:          l.Engine,
-				Owner:           l.Owner,
-				ExpiredDuration: l.ExpiredDuration,
+				Lease:     &md,
+				TableName: l.TableName,
+				Engine:    l.Engine,
+				Owner:     l.Owner,
 			}, &dbRenewer{
-				Lease:           &md,
-				TableName:       l.TableName,
-				Engine:          l.Engine,
-				Owner:           l.Owner,
-				ExpiredDuration: l.ExpiredDuration,
+				Lease:     &md,
+				TableName: l.TableName,
+				Engine:    l.Engine,
+				Owner:     l.Owner,
 			}, true, nil
 	}
 	return nil, nil, false, nil
