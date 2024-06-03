@@ -3,6 +3,7 @@ package lease
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 	"xorm.io/xorm"
 )
@@ -36,21 +37,24 @@ type dbLease struct {
 }
 
 type dbReleaser struct {
-	Lease     *DbModel
-	TableName string
-	Owner     string
-	Engine    *xorm.Engine
+	Lease       *DbModel
+	TableName   string
+	Owner       string
+	Engine      *xorm.Engine
+	releaseOnce sync.Once
 }
 
-func (r *dbReleaser) Release() error {
-	session := r.Engine.NewSession()
-	defer session.Close()
-	_, err := session.
-		Where("id = ?", r.Lease.Id).
-		And("owner = ?", r.Owner).
-		Table(r.TableName).
-		Delete(new(DbModel))
-	return err
+func (r *dbReleaser) Release() (err error) {
+	r.releaseOnce.Do(func() {
+		session := r.Engine.NewSession()
+		defer session.Close()
+		_, err = session.
+			Where("id = ?", r.Lease.Id).
+			And("owner = ?", r.Owner).
+			Table(r.TableName).
+			Delete(new(DbModel))
+	})
+	return
 }
 
 type dbRenewer struct {

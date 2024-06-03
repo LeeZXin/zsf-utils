@@ -14,7 +14,7 @@ mainLoopTask 集群节点中，只有单个节点执行，其他节点会等待�
 type mainLoopTask struct {
 	handler                      func(context.Context)
 	leaser                       lease.Leaser
-	subCancelFn                  atomic.Value
+	subCancelFn, releaser        atomic.Value
 	waitDuration, renewDuration  time.Duration
 	grantCallback, renewCallback func(error, bool)
 	releaseCallback              func()
@@ -67,6 +67,13 @@ func (t *mainLoopTask) Start() StopFunc {
 		if fn != nil {
 			fn.(context.CancelFunc)()
 		}
+		r := t.releaser.Load()
+		if r != nil {
+			r.(lease.Releaser).Release()
+			if t.releaseCallback != nil {
+				t.releaseCallback()
+			}
+		}
 	})
 }
 
@@ -80,6 +87,7 @@ func (t *mainLoopTask) do() {
 		t.grantCallback(err, b)
 	}
 	if err == nil && b {
+		t.releaser.Store(releaser)
 		defer func() {
 			releaser.Release()
 			if t.releaseCallback != nil {
