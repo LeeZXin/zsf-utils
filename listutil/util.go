@@ -98,6 +98,21 @@ func Map[T, K any](data []T, mapper func(T) (K, error)) ([]K, error) {
 	return ret, nil
 }
 
+func MapWithIndex[T, K any](data []T, mapper func(T, int) (K, error)) ([]K, error) {
+	if mapper == nil {
+		return nil, errors.New("nil mapper")
+	}
+	ret := make([]K, 0, len(data))
+	for i, d := range data {
+		k, err := mapper(d, i)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, k)
+	}
+	return ret, nil
+}
+
 func Distinct[T comparable](data ...T) []T {
 	return hashset.NewHashSet(data...).AllKeys()
 }
