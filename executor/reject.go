@@ -6,6 +6,7 @@ import "errors"
 //默认实现两种
 // AbortStrategy 直接丢弃
 // CallerRunsStrategy 由主协程执行
+// StillQueuedStrategy 继续排队
 
 var (
 	AbortStrategy RejectStrategy = func(runnable Runnable, executor *Executor) error {
@@ -14,6 +15,11 @@ var (
 
 	CallerRunsStrategy RejectStrategy = func(runnable Runnable, executor *Executor) error {
 		runnable.Run()
+		return nil
+	}
+
+	StillQueuedStrategy RejectStrategy = func(runnable Runnable, executor *Executor) error {
+		executor.queue <- runnable
 		return nil
 	}
 )
