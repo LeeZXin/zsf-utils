@@ -15,10 +15,7 @@ func RunPeriodicalTask(delay, interval time.Duration, handler func(context.Conte
 		if delay > 0 {
 			time.Sleep(delay)
 		}
-		for {
-			if ctx.Err() != nil {
-				return
-			}
+		for ctx.Err() == nil {
 			handler(ctx)
 			time.Sleep(interval)
 		}
