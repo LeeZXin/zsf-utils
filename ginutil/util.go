@@ -3,7 +3,9 @@ package ginutil
 import (
 	"github.com/LeeZXin/zsf-utils/bizerr"
 	"github.com/gin-gonic/gin"
+	"io"
 	"net/http"
+	"strings"
 )
 
 var (
@@ -77,4 +79,24 @@ func GetClientIp(c *gin.Context) string {
 		return "127.0.0.1"
 	}
 	return ip
+}
+
+func GetFile(c *gin.Context) (io.ReadCloser, bool, error) {
+	contentType := strings.ToLower(c.GetHeader("Content-Type"))
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") || strings.HasPrefix(contentType, "multipart/form-data") {
+		if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+			return nil, false, err
+		}
+		if c.Request.MultipartForm.File == nil {
+			return nil, false, http.ErrMissingFile
+		}
+		for _, files := range c.Request.MultipartForm.File {
+			if len(files) > 0 {
+				r, err := files[0].Open()
+				return r, true, err
+			}
+		}
+		return nil, false, http.ErrMissingFile
+	}
+	return c.Request.Body, false, nil
 }
