@@ -22,12 +22,11 @@ type Renewer interface {
 }
 
 type DbModel struct {
-	Id           int64     `json:"id" xorm:"pk autoincr"`
-	LeaseKey     string    `json:"leaseKey"`
-	Owner        string    `json:"owner"`
-	RenewVersion int64     `json:"renewVersion"`
-	Renewed      time.Time `json:"renewed"`
-	Created      time.Time `json:"created" xorm:"created"`
+	Id       int64     `json:"id" xorm:"pk autoincr"`
+	LeaseKey string    `json:"leaseKey"`
+	Owner    string    `json:"owner"`
+	Renewed  time.Time `json:"renewed"`
+	Created  time.Time `json:"created" xorm:"created"`
 }
 
 type dbLease struct {
@@ -142,10 +141,9 @@ func (l *dbLease) tryGrant(session *xorm.Session) (DbModel, bool, error) {
 	now := time.Now()
 	if !b {
 		md = DbModel{
-			LeaseKey:     l.Key,
-			Owner:        l.Owner,
-			Renewed:      now,
-			RenewVersion: 0,
+			LeaseKey: l.Key,
+			Owner:    l.Owner,
+			Renewed:  now,
 		}
 		// 不存在则插入
 		_, err = session.Table(l.TableName).Insert(&md)
@@ -161,13 +159,12 @@ func (l *dbLease) tryGrant(session *xorm.Session) (DbModel, bool, error) {
 	}
 	// 锁过期
 	if md.Renewed.Before(now.Add(-l.ExpiredDuration)) {
+		oldOwner := md.Owner
 		md.Owner = l.Owner
 		md.Renewed = now
-		oldVersion := md.RenewVersion
-		md.RenewVersion += 1
 		rows, err := session.Where("id = ?", md.Id).
-			And("renew_version = ?", oldVersion).
-			Cols("owner", "renewed", "renew_version").
+			And("owner = ?", oldOwner).
+			Cols("owner", "renewed").
 			Table(l.TableName).
 			Update(&md)
 		if err != nil {
