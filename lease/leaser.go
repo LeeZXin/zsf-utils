@@ -3,6 +3,7 @@ package lease
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 	"xorm.io/xorm"
@@ -21,11 +22,12 @@ type Renewer interface {
 }
 
 type DbModel struct {
-	Id       int64     `json:"id" xorm:"pk autoincr"`
-	LeaseKey string    `json:"leaseKey"`
-	Owner    string    `json:"owner"`
-	Renewed  time.Time `json:"renewed"`
-	Created  time.Time `json:"created" xorm:"created"`
+	Id           int64     `json:"id" xorm:"pk autoincr"`
+	LeaseKey     string    `json:"leaseKey"`
+	Owner        string    `json:"owner"`
+	RenewVersion int64     `json:"renewVersion"`
+	Renewed      time.Time `json:"renewed"`
+	Created      time.Time `json:"created" xorm:"created"`
 }
 
 type dbLease struct {
@@ -106,15 +108,7 @@ func NewDbLease(key, owner, tableName string, engine *xorm.Engine, expiredDurati
 func (l *dbLease) TryGrant() (Releaser, Renewer, bool, error) {
 	session := l.Engine.NewSession()
 	defer session.Close()
-	err := session.Begin()
-	if err != nil {
-		return nil, nil, false, err
-	}
-	md, success, err := l.tryGrantInTx(session)
-	if err != nil {
-		return nil, nil, false, err
-	}
-	err = session.Commit()
+	md, success, err := l.tryGrant(session)
 	if err != nil {
 		return nil, nil, false, err
 	}
@@ -134,13 +128,13 @@ func (l *dbLease) TryGrant() (Releaser, Renewer, bool, error) {
 	return nil, nil, false, nil
 }
 
-func (l *dbLease) tryGrantInTx(session *xorm.Session) (DbModel, bool, error) {
+// tryGrant 使用乐观锁
+func (l *dbLease) tryGrant(session *xorm.Session) (DbModel, bool, error) {
 	var md DbModel
 	// select for update
 	b, err := session.
 		Where("lease_key = ?", l.Key).
 		Table(l.TableName).
-		ForUpdate().
 		Get(&md)
 	if err != nil {
 		return md, false, err
@@ -148,13 +142,18 @@ func (l *dbLease) tryGrantInTx(session *xorm.Session) (DbModel, bool, error) {
 	now := time.Now()
 	if !b {
 		md = DbModel{
-			LeaseKey: l.Key,
-			Owner:    l.Owner,
-			Renewed:  now,
+			LeaseKey:     l.Key,
+			Owner:        l.Owner,
+			Renewed:      now,
+			RenewVersion: 0,
 		}
 		// 不存在则插入
 		_, err = session.Table(l.TableName).Insert(&md)
 		if err != nil {
+			// 唯一键冲突
+			if strings.Contains(err.Error(), "Error 1062") {
+				return md, false, nil
+			}
 			return md, false, err
 		}
 		// 加锁成功
@@ -164,15 +163,17 @@ func (l *dbLease) tryGrantInTx(session *xorm.Session) (DbModel, bool, error) {
 	if md.Renewed.Before(now.Add(-l.ExpiredDuration)) {
 		md.Owner = l.Owner
 		md.Renewed = now
-		_, err = session.Where("id = ?", md.Id).
-			Cols("owner", "renewed").
+		oldVersion := md.RenewVersion
+		md.RenewVersion += 1
+		rows, err := session.Where("id = ?", md.Id).
+			And("renew_version = ?", oldVersion).
+			Cols("owner", "renewed", "renew_version").
 			Table(l.TableName).
 			Update(&md)
 		if err != nil {
-			return md, false, nil
+			return md, false, err
 		}
-		// 加锁成功
-		return md, true, nil
+		return md, rows == 1, nil
 	}
 	// 没过期则判断有效的锁的owner是不是自己
 	return md, md.Owner == l.Owner, nil

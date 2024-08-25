@@ -83,7 +83,8 @@ func GetClientIp(c *gin.Context) string {
 
 func GetFile(c *gin.Context) (io.ReadCloser, bool, error) {
 	contentType := strings.ToLower(c.GetHeader("Content-Type"))
-	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") || strings.HasPrefix(contentType, "multipart/form-data") {
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") ||
+		strings.HasPrefix(contentType, "multipart/form-data") {
 		if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
 			return nil, false, err
 		}
