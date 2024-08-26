@@ -98,6 +98,18 @@ func Map[T, K any](data []T, mapper func(T) (K, error)) ([]K, error) {
 	return ret, nil
 }
 
+// MapNe Map with no error
+func MapNe[T, K any](data []T, mapper func(T) K) []K {
+	if mapper == nil {
+		return nil
+	}
+	ret := make([]K, 0, len(data))
+	for _, d := range data {
+		ret = append(ret, mapper(d))
+	}
+	return ret
+}
+
 func MapWithIndex[T, K any](data []T, mapper func(T, int) (K, error)) ([]K, error) {
 	if mapper == nil {
 		return nil, errors.New("nil mapper")
@@ -111,6 +123,18 @@ func MapWithIndex[T, K any](data []T, mapper func(T, int) (K, error)) ([]K, erro
 		ret = append(ret, k)
 	}
 	return ret, nil
+}
+
+// MapNeWithIndex MapWithIndex with no error
+func MapNeWithIndex[T, K any](data []T, mapper func(T, int) K) []K {
+	if mapper == nil {
+		return nil
+	}
+	ret := make([]K, 0, len(data))
+	for i, d := range data {
+		ret = append(ret, mapper(d, i))
+	}
+	return ret
 }
 
 func Distinct[T comparable](data ...T) []T {
