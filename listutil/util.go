@@ -48,6 +48,11 @@ func Contains[T any](arr []T, fn func(T) (bool, error)) (bool, error) {
 	return b, err
 }
 
+func ContainsNe[T any](arr []T, fn func(T) bool) bool {
+	_, b := FindFirstNe(arr, fn)
+	return b
+}
+
 func FindFirst[T any](arr []T, fn func(T) (bool, error)) (T, bool, error) {
 	if fn == nil {
 		var t T
@@ -66,6 +71,20 @@ func FindFirst[T any](arr []T, fn func(T) (bool, error)) (T, bool, error) {
 	return t, false, nil
 }
 
+func FindFirstNe[T any](arr []T, fn func(T) bool) (T, bool) {
+	if fn == nil {
+		var t T
+		return t, false
+	}
+	for _, t := range arr {
+		if fn(t) {
+			return t, true
+		}
+	}
+	var t T
+	return t, false
+}
+
 func Filter[T any](data []T, fn func(T) (bool, error)) ([]T, error) {
 	if fn == nil {
 		return nil, errors.New("nil filter")
@@ -81,6 +100,19 @@ func Filter[T any](data []T, fn func(T) (bool, error)) ([]T, error) {
 		}
 	}
 	return ret, nil
+}
+
+func FilterNe[T any](data []T, fn func(T) bool) []T {
+	if fn == nil {
+		return nil
+	}
+	ret := make([]T, 0)
+	for _, d := range data {
+		if fn(d) {
+			ret = append(ret, d)
+		}
+	}
+	return ret
 }
 
 func Map[T, K any](data []T, mapper func(T) (K, error)) ([]K, error) {
