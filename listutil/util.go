@@ -214,6 +214,20 @@ func CollectToMap[T any, N comparable, K any](data []T, nameFn func(T) (N, error
 	return ret, nil
 }
 
+func CollectToMapNe[T any, N comparable, K any](data []T, nameFn func(T) N, valFn func(T) K) map[N]K {
+	if nameFn == nil {
+		return nil
+	}
+	if valFn == nil {
+		return nil
+	}
+	ret := make(map[N]K, len(data))
+	for _, d := range data {
+		ret[nameFn(d)] = valFn(d)
+	}
+	return ret
+}
+
 func Copy[T any](data []T) []T {
 	if data == nil {
 		return nil

@@ -1,10 +1,8 @@
 package luautil
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"github.com/LeeZXin/zsf-utils/localcache"
 	"github.com/spf13/cast"
 	lua "github.com/yuin/gopher-lua"
 	"github.com/yuin/gopher-lua/parse"
@@ -366,23 +364,40 @@ func GetFnArgs(state *lua.LState) []lua.LValue {
 type CachedScript struct {
 	ScriptContent string
 	//脚本缓存 *lua.FunctionProto
-	protoCache *localcache.LazyLoader[*lua.FunctionProto]
+	protoCache *lua.FunctionProto
+	//编译锁
+	compileMu sync.RWMutex
 }
 
 func NewCachedScript(scriptContent string) *CachedScript {
 	p := &CachedScript{
 		ScriptContent: scriptContent,
 	}
-	c, _ := localcache.NewLazyLoader[*lua.FunctionProto](func(context.Context) (*lua.FunctionProto, error) {
-		return CompileLua(p.ScriptContent)
-	})
-	p.protoCache = c
 	return p
 }
 
 // GetCompiledScript 脚本编译
 func (p *CachedScript) GetCompiledScript() (*lua.FunctionProto, error) {
-	return p.protoCache.Load(nil)
+	var (
+		proto *lua.FunctionProto
+		err   error
+	)
+	p.compileMu.RLock()
+	proto = p.protoCache
+	p.compileMu.RUnlock()
+	if proto != nil {
+		return proto, nil
+	}
+	p.compileMu.Lock()
+	defer p.compileMu.Unlock()
+	if p.protoCache == nil {
+		proto, err = CompileLua(p.ScriptContent)
+		if err != nil {
+			return nil, err
+		}
+		p.protoCache = proto
+	}
+	return p.protoCache, nil
 }
 
 func Execute(L *lua.LState, proto *lua.FunctionProto, bindings Bindings) ([]lua.LValue, error) {
