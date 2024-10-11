@@ -17,52 +17,6 @@ const (
 	JsonContentType = "application/json;charset=utf-8"
 )
 
-type RetryableRoundTripper struct {
-	Delegated http.RoundTripper
-}
-
-func (t *RetryableRoundTripper) RoundTrip(request *http.Request) (response *http.Response, err error) {
-	buf := new(bytes.Buffer)
-	hasBody := request.Body != nil
-	if hasBody {
-		_, err = io.Copy(buf, request.Body)
-		request.Body.Close()
-	}
-	if err != nil {
-		return
-	}
-	for i := 0; i < 3; i++ {
-		if hasBody {
-			request.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
-		}
-		response, err = t.Delegated.RoundTrip(request)
-		if err == nil {
-			break
-		}
-	}
-	return
-}
-
-// NewRetryableHttpClient http client
-func NewRetryableHttpClient() *http.Client {
-	return &http.Client{
-		Transport: &RetryableRoundTripper{
-			Delegated: newRoundTripper(false),
-		},
-		Timeout: 30 * time.Second,
-	}
-}
-
-// NewRetryableHttp2Client retryable http2 client
-func NewRetryableHttp2Client() *http.Client {
-	return &http.Client{
-		Transport: &RetryableRoundTripper{
-			Delegated: newRoundTripper(true),
-		},
-		Timeout: 30 * time.Second,
-	}
-}
-
 func newRoundTripper(http2Enabled bool) http.RoundTripper {
 	if http2Enabled {
 		return &http2.Transport{
@@ -131,7 +85,7 @@ func Post(ctx context.Context, client *http.Client, url string, header map[strin
 		return err
 	}
 	defer post.Body.Close()
-	if post.StatusCode >= http.StatusBadRequest {
+	if post.StatusCode != http.StatusOK {
 		return fmt.Errorf("http request return code: %v", post.StatusCode)
 	}
 	respBody, err := io.ReadAll(post.Body)
@@ -159,7 +113,7 @@ func Get(ctx context.Context, client *http.Client, url string, header map[string
 		return err
 	}
 	defer get.Body.Close()
-	if get.StatusCode >= http.StatusBadRequest {
+	if get.StatusCode != http.StatusOK {
 		return fmt.Errorf("http request return code: %v", get.StatusCode)
 	}
 	respBody, err := io.ReadAll(get.Body)
