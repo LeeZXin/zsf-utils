@@ -3,6 +3,7 @@ package bizerr
 import "fmt"
 
 type Err struct {
+	error
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
